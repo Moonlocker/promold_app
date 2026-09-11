@@ -5,7 +5,9 @@ import '../core/logic/status_config.dart';
 import '../models/categoria_peca.dart';
 import '../models/obra.dart';
 import '../models/obra_historico.dart';
+import '../models/obra_ifc.dart';
 import '../models/obra_midia.dart';
+import '../models/mapa_montagem.dart';
 import '../models/obra_peca.dart';
 import '../models/peca_catalogo.dart';
 import '../models/processo_etapa.dart';
@@ -108,6 +110,23 @@ final processosEtapasProvider = FutureProvider<List<ProcessoEtapa>>(
 
 final processosEtapasItensProvider = FutureProvider<List<ProcessoEtapaItem>>(
   (ref) => ref.watch(processosRepositoryProvider).listItens(),
+);
+
+// ------------------------------------------------------------------- IFC 3D
+final obraIfcArquivosProvider =
+    FutureProvider.family<List<ObraIfcArquivo>, String>(
+  (ref, obraId) => ref.watch(obraIfcRepositoryProvider).listByObra(obraId),
+);
+
+// ------------------------------------------------------ Mapa de Montagem 2D
+final obraMapaVistasProvider =
+    FutureProvider.family<List<MapaMontagemVista>, String>(
+  (ref, obraId) => ref.watch(mapaMontagemRepositoryProvider).listVistas(obraId),
+);
+
+final obraMapaCelulasProvider =
+    FutureProvider.family<List<MapaMontagemCelula>, String>(
+  (ref, vistaId) => ref.watch(mapaMontagemRepositoryProvider).listCelulas(vistaId),
 );
 
 final obraEtapaStatusProvider = FutureProvider<List<ObraEtapaStatus>>(

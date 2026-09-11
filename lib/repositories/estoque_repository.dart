@@ -91,6 +91,36 @@ class EstoqueRepository {
         .update({'estoque_id': null}).eq('id', pecaId);
   }
 
+  // -------------------------------------------------------- Compartimentos
+  Future<List<Compartimento>> listCompartimentos(String estoqueId) async {
+    final rows = await _client
+        .from('compartimentos')
+        .select()
+        .eq('estoque_id', estoqueId)
+        .neq('nome', _nomeLink)
+        .order('nome');
+    return rows
+        .map((e) => Compartimento.fromMap(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<void> createCompartimento(
+    String estoqueId,
+    Map<String, dynamic> data,
+  ) async {
+    await _client
+        .from('compartimentos')
+        .insert({'estoque_id': estoqueId, ...data});
+  }
+
+  Future<void> updateCompartimento(String id, Map<String, dynamic> data) async {
+    await _client.from('compartimentos').update(data).eq('id', id);
+  }
+
+  Future<void> deleteCompartimento(String id) async {
+    await _client.from('compartimentos').delete().eq('id', id);
+  }
+
   // --------------------------------------------------------- Imagem do local
   Future<String> uploadImagemEstoque({
     required String estoqueId,

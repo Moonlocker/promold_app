@@ -52,18 +52,20 @@ class _ObrasScreenState extends ConsumerState<ObrasScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Obras')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final ok = await showObraFormSheet(context, ref);
-          if (ok == true && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Obra cadastrada!')),
-            );
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Nova Obra'),
-      ),
+      floatingActionButton: ref.podeCriar('obras')
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final ok = await showObraFormSheet(context, ref);
+                if (ok == true && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Obra cadastrada!')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Nova Obra'),
+            )
+          : null,
       body: obrasAsync.when(
         loading: () => const LoadingView(message: 'Carregando obras...'),
         error: (e, _) => ErrorView(

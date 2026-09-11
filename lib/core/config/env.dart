@@ -11,6 +11,14 @@ class Env {
 
   static const String appName = 'ProMold';
 
+  /// URL base do sistema web (usada para montar links públicos, ex.:
+  /// orçamento público). Configure em build com
+  /// `--dart-define=WEB_BASE_URL=https://seu-dominio`.
+  static const String webBaseUrl = String.fromEnvironment(
+    'WEB_BASE_URL',
+    defaultValue: '',
+  );
+
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
     defaultValue: 'https://kdtfjrdgnebncizjgymw.supabase.co',

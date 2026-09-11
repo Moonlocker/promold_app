@@ -1,6 +1,7 @@
-import 'package:file_picker/file_picker.dart';
+﻿import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../providers/auth_providers.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -10,11 +11,12 @@ import '../../../providers/estoque_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import '../../../repositories/estoque_repository.dart';
 import '../../../services/etiquetas_service.dart';
+import '../widgets/compartimentos_sheet.dart';
 import '../widgets/estoque_form_sheet.dart';
 import '../widgets/estoque_visual_editor.dart';
 import '../widgets/vincular_peca_sheet.dart';
 
-/// Módulo Estoque: cadastro de locais e mapa visual.
+/// MÃ³dulo Estoque: cadastro de locais e mapa visual.
 class EstoqueScreen extends ConsumerStatefulWidget {
   const EstoqueScreen({super.key});
 
@@ -56,18 +58,20 @@ class _EstoqueScreenState extends ConsumerState<EstoqueScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final ok = await showEstoqueFormSheet(context, ref);
-          if (ok == true && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Estoque cadastrado!')),
-            );
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Novo Estoque'),
-      ),
+      floatingActionButton: ref.podeCriar('estoque')
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final ok = await showEstoqueFormSheet(context, ref);
+                if (ok == true && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Estoque cadastrado!')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Novo Estoque'),
+            )
+          : null,
       body: estoquesAsync.when(
         loading: () => const LoadingView(message: 'Carregando estoques...'),
         error: (e, _) => Center(child: Text('Erro: $e')),
@@ -90,7 +94,7 @@ class _EstoqueScreenState extends ConsumerState<EstoqueScreen> {
             return const EmptyState(
               icon: Icons.warehouse_outlined,
               title: 'Nenhum estoque cadastrado',
-              message: 'Cadastre os locais de armazenamento da fábrica.',
+              message: 'Cadastre os locais de armazenamento da fÃ¡brica.',
             );
           }
 
@@ -129,7 +133,7 @@ class _EstoqueScreenState extends ConsumerState<EstoqueScreen> {
                         initialValue: _pecaFiltro,
                         isDense: true,
                         decoration: const InputDecoration(
-                            labelText: 'Filtrar por peça', isDense: true),
+                            labelText: 'Filtrar por peÃ§a', isDense: true),
                         items: [
                           const DropdownMenuItem(
                               value: 'all', child: Text('Todas')),
@@ -303,8 +307,8 @@ class _EstoqueCard extends ConsumerWidget {
                       const SizedBox(height: 6),
                       Text(
                         cap != null
-                            ? '$count/$cap peças (${ocupacao!.round()}%)'
-                            : '$count peças',
+                            ? '$count/$cap peÃ§as (${ocupacao!.round()}%)'
+                            : '$count peÃ§as',
                         style: const TextStyle(fontSize: 12.5),
                       ),
                       if (ocupacao != null) ...[
@@ -328,17 +332,27 @@ class _EstoqueCard extends ConsumerWidget {
                 ),
                 PopupMenuButton<String>(
                   onSelected: (v) => _acao(context, ref, v),
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'vincular', child: Text('Vincular peça')),
-                    PopupMenuItem(value: 'qr', child: Text('QR Code')),
-                    PopupMenuItem(value: 'imagem', child: Text('Imagem de referência')),
-                    PopupMenuItem(value: 'duplicar', child: Text('Duplicar')),
-                    PopupMenuItem(value: 'editar', child: Text('Editar')),
-                    PopupMenuItem(
-                      value: 'excluir',
-                      child: Text('Excluir',
-                          style: TextStyle(color: AppColors.destructive)),
-                    ),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                        value: 'vincular', child: Text('Vincular peÃ§a')),
+                    const PopupMenuItem(
+                        value: 'compartimentos',
+                        child: Text('Compartimentos')),
+                    const PopupMenuItem(value: 'qr', child: Text('QR Code')),
+                    if (ref.podeEditar('estoque'))
+                      const PopupMenuItem(
+                          value: 'imagem', child: Text('Imagem de referÃªncia')),
+                    if (ref.podeEditar('estoque'))
+                      const PopupMenuItem(
+                          value: 'duplicar', child: Text('Duplicar')),
+                    if (ref.podeEditar('estoque'))
+                      const PopupMenuItem(value: 'editar', child: Text('Editar')),
+                    if (ref.podeExcluir('estoque'))
+                      const PopupMenuItem(
+                        value: 'excluir',
+                        child: Text('Excluir',
+                            style: TextStyle(color: AppColors.destructive)),
+                      ),
                   ],
                 ),
               ],
@@ -349,7 +363,7 @@ class _EstoqueCard extends ConsumerWidget {
               if (pecas.length > 8)
                 TextButton(
                   onPressed: () => _verTodasPecas(context, ref),
-                  child: Text('Ver todas (${pecas.length} peças)'),
+                  child: Text('Ver todas (${pecas.length} peÃ§as)'),
                 ),
             ],
           ],
@@ -405,6 +419,8 @@ class _EstoqueCard extends ConsumerWidget {
       case 'vincular':
         final ok = await showVincularPecaSheet(context, ref, estoque: estoque);
         if (ok == true) onChanged();
+      case 'compartimentos':
+        await showCompartimentosSheet(context, estoque: estoque);
       case 'qr':
         await EtiquetasService.imprimirQrEstoque(
           nome: estoque.nome,
@@ -424,7 +440,7 @@ class _EstoqueCard extends ConsumerWidget {
           builder: (context) => AlertDialog(
             title: const Text('Excluir estoque'),
             content: Text(
-                'Excluir "${estoque.nome}"? As peças serão desvinculadas.'),
+                'Excluir "${estoque.nome}"? As peÃ§as serÃ£o desvinculadas.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -486,7 +502,7 @@ class _EstoqueCard extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('${estoque.nome} · ${pecas.length} peças'),
+        title: Text('${estoque.nome} Â· ${pecas.length} peÃ§as'),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView(
@@ -494,7 +510,7 @@ class _EstoqueCard extends ConsumerWidget {
             children: pecas
                 .map((p) => ListTile(
                       dense: true,
-                      title: Text('${p.identificador} · ${p.pecaNome}'),
+                      title: Text('${p.identificador} Â· ${p.pecaNome}'),
                       subtitle: Text(p.obraNome,
                           style: const TextStyle(fontSize: 12)),
                       trailing: IconButton(

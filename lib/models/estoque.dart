@@ -65,6 +65,31 @@ class Estoque {
   }
 }
 
+/// Compartimento de um estoque (tabela `compartimentos`).
+class Compartimento {
+  const Compartimento({
+    required this.id,
+    required this.nome,
+    this.estoqueId,
+    this.descricao,
+    this.ocupado = false,
+  });
+
+  final String id;
+  final String nome;
+  final String? estoqueId;
+  final String? descricao;
+  final bool ocupado;
+
+  factory Compartimento.fromMap(Map<String, dynamic> map) => Compartimento(
+        id: map['id'] as String,
+        nome: (map['nome'] as String?) ?? 'Compartimento',
+        estoqueId: map['estoque_id'] as String?,
+        descricao: map['descricao'] as String?,
+        ocupado: (map['ocupado'] as bool?) ?? false,
+      );
+}
+
 /// Configuração do canvas do mapa (tabela `estoque_visual_config`).
 class EstoqueVisualConfig {
   const EstoqueVisualConfig({

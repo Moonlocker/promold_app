@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Visualizador IFC</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #eef1f5; font-family: sans-serif; }
+  #app { position: absolute; inset: 0; }
+  #hud {
+    position: absolute; left: 10px; bottom: 10px; right: 10px;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    pointer-events: none;
+  }
+  #hud button {
+    pointer-events: auto; border: none; border-radius: 999px;
+    padding: 8px 14px; font-size: 13px; font-weight: 600;
+    background: rgba(23,28,38,.85); color: #fff;
+  }
+  #status {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(23,28,38,.85); color: #fff; padding: 8px 16px;
+    border-radius: 999px; font-size: 13px; white-space: nowrap;
+  }
+  #legend {
+    position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,.92);
+    border-radius: 10px; padding: 8px 10px; font-size: 11px; display: none;
+  }
+  #legend div { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  #legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="status">Carregando visualizador…</div>
+<div id="legend"></div>
+<div id="hud">
+  <button id="btnReset">Recentralizar</button>
+  <button id="btnIso">Vista 3D</button>
+  <button id="btnTop">Planta</button>
+  <button id="btnWire">Arestas</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "web-ifc": "https://unpkg.com/web-ifc@0.0.77/web-ifc-api.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { IfcAPI } from 'web-ifc';
+
+const params = new URLSearchParams(location.search);
+let ifcUrl = params.get('url');
+const dark = params.get('dark') === '1';
+let started = false;
+
+const container = document.getElementById('app');
+const statusEl = document.getElementById('status');
+const legendEl = document.getElementById('legend');
+
+let scene, camera, renderer, controls, grid;
+let meshes = new Map();       // expressID -> mesh
+let meshByGlobalId = new Map(); // globalId -> mesh
+let modelBbox = new THREE.Box3();
+let statusColors = {};         // globalId -> '#rrggbb'
+let wireframe = false;
+
+function setStatus(text) {
+  statusEl.textContent = text;
+  statusEl.style.display = text ? 'block' : 'none';
+}
+
+function post(obj) {
+  try {
+    if (window.IfcBridge && window.IfcBridge.postMessage) {
+      window.IfcBridge.postMessage(JSON.stringify(obj));
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function initScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(dark ? '#181c24' : '#eef1f5');
+
+  const w = container.clientWidth || window.innerWidth;
+  const h = container.clientHeight || window.innerHeight;
+
+  camera = new THREE.PerspectiveCamera(55, w / h, 0.01, 100000);
+  camera.position.set(12, 10, 12);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(w, h);
+  container.appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight('#ffffff', '#9aa3ad', 1.1));
+  const dir = new THREE.DirectionalLight('#ffffff', 1.4);
+  dir.position.set(30, 50, 20);
+  scene.add(dir);
+
+  grid = new THREE.GridHelper(200, 100, 0x9aa3ad, 0xc7cdd6);
+  grid.material.opacity = 0.45;
+  grid.material.transparent = true;
+  scene.add(grid);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.12;
+  controls.screenSpacePanning = true;
+  controls.addEventListener('change', () => { if (grid) grid.visible = true; });
+
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let downX = 0, downY = 0;
+  renderer.domElement.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
+  renderer.domElement.addEventListener('pointerup', (e) => {
+    if (Math.abs(e.clientX - downX) > 6 || Math.abs(e.clientY - downY) > 6) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const list = [];
+    meshes.forEach((m) => list.push(m));
+    const hits = raycaster.intersectObjects(list, false);
+    if (hits.length) {
+      const mesh = hits[0].object;
+      post({
+        type: 'select',
+        expressId: mesh.userData.expressId,
+        globalId: mesh.userData.globalId || '',
+        name: mesh.userData.name || ''
+      });
+    } else {
+      post({ type: 'select', expressId: null });
+    }
+  });
+
+  window.addEventListener('resize', onResize);
+  animate();
+}
+
+function onResize() {
+  const w = container.clientWidth || window.innerWidth;
+  const h = container.clientHeight || window.innerHeight;
+  if (!renderer) return;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (controls) controls.update();
+  if (renderer) renderer.render(scene, camera);
+}
+
+function frameBox(box) {
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+  const fov = camera.fov * (Math.PI / 180);
+  const dist = (maxDim / 2) / Math.tan(fov / 2) * 1.6;
+  const dirV = new THREE.Vector3(1, 0.7, 1).normalize();
+  camera.position.copy(center).addScaledVector(dirV, dist);
+  controls.target.copy(center);
+  camera.near = Math.max(dist / 1000, 0.001);
+  camera.far = dist * 100;
+  camera.updateProjectionMatrix();
+  controls.update();
+}
+
+function applyColors() {
+  meshes.forEach((mesh) => {
+    const gid = mesh.userData.globalId;
+    const hex = statusColors[gid];
+    const mat = mesh.material;
+    if (hex) {
+      mat.color.set(hex);
+      mat.userData.baseColor = hex;
+    } else if (mat.userData.baseColor) {
+      mat.color.set(mat.userData.baseColor);
+    }
+  });
+}
+
+async function loadIfc() {
+  if (!ifcUrl) { setStatus('Nenhum arquivo IFC informado.'); return; }  try {
+    setStatus('Baixando arquivo IFC…');
+    const resp = await fetch(ifcUrl);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const buf = await resp.arrayBuffer();
+
+    setStatus('Inicializando motor 3D…');
+    const api = new IfcAPI();
+    api.SetWasmPath('https://unpkg.com/web-ifc@0.0.77/', true);
+    await api.Init();
+
+    setStatus('Abrindo modelo…');
+    const modelID = api.OpenModel(new Uint8Array(buf), { COORDINATE_TO_ORIGIN: true });
+
+    const group = new THREE.Group();
+    let count = 0;
+    api.StreamAllMeshes(modelID, (flatMesh) => {
+      const expressID = flatMesh.expressID;
+      const placed = flatMesh.geometries;
+      const geos = [];
+      let repColor = null;
+      for (let i = 0; i < placed.size(); i++) {
+        const pg = placed.get(i);
+        const geom = api.GetGeometry(modelID, pg.geometryExpressID);
+        const verts = api.GetVertexArray(geom.GetVertexData(), geom.GetVertexDataSize());
+        const indices = api.GetIndexArray(geom.GetIndexData(), geom.GetIndexDataSize());
+        const vCount = verts.length / 6;
+        const positions = new Float32Array(vCount * 3);
+        const normals = new Float32Array(vCount * 3);
+        for (let v = 0; v < vCount; v++) {
+          positions[v * 3] = verts[v * 6];
+          positions[v * 3 + 1] = verts[v * 6 + 1];
+          positions[v * 3 + 2] = verts[v * 6 + 2];
+          normals[v * 3] = verts[v * 6 + 3];
+          normals[v * 3 + 1] = verts[v * 6 + 4];
+          normals[v * 3 + 2] = verts[v * 6 + 5];
+        }
+        const bg = new THREE.BufferGeometry();
+        bg.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        bg.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+        bg.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+        const m = new THREE.Matrix4().fromArray(pg.flatTransformation);
+        bg.applyMatrix4(m);
+        geos.push(bg);
+        const c = pg.color;
+        if (!repColor || c.w > 0.99) repColor = { r: c.x, g: c.y, b: c.z, a: c.w };
+        geom.delete();
+      }
+      if (!geos.length) return;
+      const merged = mergeGeos(geos);
+      geos.forEach((g) => g.dispose());
+      const col = repColor || { r: 0.78, g: 0.79, b: 0.81, a: 1 };
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(col.r, col.g, col.b),
+        roughness: 0.78, metalness: 0.06, side: THREE.DoubleSide
+      });
+      const mesh = new THREE.Mesh(merged, mat);
+      mesh.userData.expressId = expressID;
+
+      let globalId = '', name = '';
+      try {
+        const line = api.GetLine(modelID, expressID);
+        globalId = (line && line.GlobalId && line.GlobalId.value) ? line.GlobalId.value : (line.GlobalId || '');
+        const nm = line && line.Name ? (line.Name.value || line.Name) : '';
+        name = typeof nm === 'string' ? nm : '';
+      } catch (e) { /* ignore */ }
+      mesh.userData.globalId = globalId;
+      mesh.userData.name = name;
+
+      group.add(mesh);
+      meshes.set(expressID, mesh);
+      if (globalId) meshByGlobalId.set(globalId, mesh);
+      count++;
+      if (count % 100 === 0) setStatus('Elementos: ' + count + '…');
+    });
+
+    // Convert mm/cm to meters when needed.
+    let unitScale = 1;
+    try {
+      const projects = api.GetLineIDsWithType(modelID, 103090709);
+      if (projects.size() > 0) {
+        const proj = api.GetLine(modelID, projects.get(0), true);
+        const units = proj && proj.UnitsInContext && proj.UnitsInContext.Units;
+        if (Array.isArray(units)) {
+          for (const u of units) {
+            if (!u) continue;
+            const ut = u.UnitType && u.UnitType.value ? u.UnitType.value : u.UnitType;
+            if (ut === 'LENGTHUNIT') {
+              const prefix = u.Prefix && u.Prefix.value ? u.Prefix.value : u.Prefix;
+              const nm = u.Name && u.Name.value ? u.Name.value : u.Name;
+              if (nm === 'METRE') {
+                if (prefix === 'MILLI') unitScale = 0.001;
+                else if (prefix === 'CENTI') unitScale = 0.01;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    if (unitScale !== 1) group.scale.setScalar(unitScale);
+    scene.add(group);
+
+    const box = new THREE.Box3().setFromObject(group);
+    if (!box.isEmpty()) {
+      const center = box.getCenter(new THREE.Vector3());
+      const min = box.min;
+      group.position.set(group.position.x - center.x, group.position.y - min.y, group.position.z - center.z);
+      box.setFromObject(group);
+    }
+    modelBbox = box;
+
+    if (grid) {
+      const size = box.getSize(new THREE.Vector3());
+      const span = Math.max(size.x, size.z, 1);
+      scene.remove(grid);
+      grid = new THREE.GridHelper(span * 2, 40, 0x9aa3ad, 0xc7cdd6);
+      grid.material.opacity = 0.4;
+      grid.material.transparent = true;
+      scene.add(grid);
+    }
+
+    api.CloseModel(modelID);
+    applyColors();
+    frameBox(modelBbox);
+    setStatus('');
+    post({ type: 'loaded', count: count });
+  } catch (e) {
+    setStatus('Erro ao carregar IFC');
+    post({ type: 'error', message: String(e && e.message ? e.message : e) });
+  }
+}
+
+function mergeGeos(geoms) {
+  if (geoms.length === 1) return geoms[0].clone();
+  let totalV = 0, totalI = 0;
+  for (const g of geoms) {
+    totalV += g.getAttribute('position').count;
+    const idx = g.getIndex();
+    totalI += idx ? idx.count : g.getAttribute('position').count;
+  }
+  const positions = new Float32Array(totalV * 3);
+  const normals = new Float32Array(totalV * 3);
+  const indices = new Uint32Array(totalI);
+  let vOff = 0, iOff = 0;
+  for (const g of geoms) {
+    const pos = g.getAttribute('position');
+    const nor = g.getAttribute('normal');
+    positions.set(pos.array, vOff * 3);
+    if (nor) normals.set(nor.array, vOff * 3);
+    const idx = g.getIndex();
+    if (idx) {
+      for (let i = 0; i < idx.count; i++) indices[iOff + i] = idx.getX(i) + vOff;
+      iOff += idx.count;
+    } else {
+      for (let i = 0; i < pos.count; i++) indices[iOff + i] = i + vOff;
+      iOff += pos.count;
+    }
+    vOff += pos.count;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  out.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  out.setIndex(new THREE.BufferAttribute(indices, 1));
+  out.computeBoundingBox();
+  return out;
+}
+
+// ---- API exposta ao Flutter ----
+window.setStatusColors = function (json) {
+  try {
+    statusColors = typeof json === 'string' ? JSON.parse(json) : (json || {});
+  } catch (e) { statusColors = {}; }
+  applyColors();
+  // Legenda
+  legendEl.innerHTML = '';
+  const keys = Object.keys(statusColors);
+  legendEl.style.display = keys.length ? 'block' : 'none';
+};
+
+window.resetView = function () { frameBox(modelBbox); };
+
+window.viewIso = function () {
+  if (modelBbox.isEmpty()) return;
+  frameBox(modelBbox);
+};
+
+window.viewTop = function () {
+  if (modelBbox.isEmpty()) return;
+  const center = modelBbox.getCenter(new THREE.Vector3());
+  const size = modelBbox.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.z, 1);
+  camera.position.set(center.x, center.y + maxDim * 2, center.z + 0.001);
+  controls.target.copy(center);
+  controls.update();
+};
+
+window.toggleWireframe = function () {
+  wireframe = !wireframe;
+  meshes.forEach((mesh) => { mesh.material.wireframe = wireframe; });
+  return wireframe;
+};
+
+window.highlight = function (globalId) {
+  meshes.forEach((mesh) => {
+    const isSel = mesh.userData.globalId === globalId;
+    mesh.material.emissive = new THREE.Color(isSel ? '#2dd4bf' : '#000000');
+    mesh.material.emissiveIntensity = isSel ? 0.6 : 0;
+  });
+};
+
+window.__setIfc = function (url) {
+  if (started) return;
+  started = true;
+  ifcUrl = url;
+  loadIfc();
+};
+
+window.__ready = true;
+post({ type: 'ready' });
+
+initScene();
+if (ifcUrl) { started = true; loadIfc(); }
+</script>
+</body>
+</html>

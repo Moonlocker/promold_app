@@ -123,4 +123,54 @@ class ProducaoRepository {
         .order('data_inicio');
     return rows.map((e) => Map<String, dynamic>.from(e)).toList();
   }
+
+  Future<void> removerMontagem(String id) async {
+    await _client.from('planejamento_montagem').delete().eq('id', id);
+  }
+
+  // ------------------------------------------------- Histórico / ocorrências
+  Future<List<Map<String, dynamic>>> listPlanejamentoLogs({
+    required String obraId,
+    required String tipo,
+  }) async {
+    final rows = await _client
+        .from('planejamento_logs')
+        .select()
+        .eq('obra_id', obraId)
+        .eq('tipo_planejamento', tipo)
+        .order('created_at', ascending: false)
+        .limit(80);
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> addPlanejamentoLog({
+    required String tipo,
+    required String obraId,
+    String? dataReferencia,
+    required String acao,
+    String? descricao,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    final profile = await _client
+        .from('profiles')
+        .select('organizacao_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+    final orgId = profile?['organizacao_id'] as String?;
+    if (orgId == null) return;
+    await _client.from('planejamento_logs').insert({
+      'organizacao_id': orgId,
+      'tipo_planejamento': tipo,
+      'obra_id': obraId,
+      'data_referencia': dataReferencia,
+      'acao': acao,
+      'descricao': descricao,
+      'usuario_id': user.id,
+    });
+  }
+
+  Future<void> deletePlanejamentoLog(String id) async {
+    await _client.from('planejamento_logs').delete().eq('id', id);
+  }
 }

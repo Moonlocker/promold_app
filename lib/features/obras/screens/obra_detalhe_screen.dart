@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,12 +11,17 @@ import '../../../models/obra.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/obra_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../../../services/obra_relatorio_service.dart';
 import '../tabs/obra_anexos_tab.dart';
+import '../tabs/obra_3d_tab.dart';
 import '../tabs/obra_fotos_tab.dart';
 import '../tabs/obra_historico_tab.dart';
 import '../tabs/obra_insumos_tab.dart';
+import '../tabs/obra_painel_tab.dart';
 import '../tabs/obra_pecas_tab.dart';
+import '../tabs/obra_planejamento_tab.dart';
 import '../tabs/obra_visao_geral_tab.dart';
+import '../tabs/obra_visual_tab.dart';
 import '../widgets/obra_form_sheet.dart';
 
 /// Tela de detalhe da obra, com as abas do sistema web.
@@ -31,7 +36,7 @@ class ObraDetalheScreen extends ConsumerStatefulWidget {
 
 class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 9, vsync: this);
+  late final TabController _tabs = TabController(length: 10, vsync: this);
 
   @override
   void dispose() {
@@ -56,7 +61,7 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
         if (obra == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Obra')),
-            body: const Center(child: Text('Esta obra não existe ou foi removida.')),
+            body: const Center(child: Text('Esta obra nÃ£o existe ou foi removida.')),
           );
         }
         return Scaffold(
@@ -81,11 +86,12 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
               PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'monitorar') _monitorar(obra);
+                  if (v == 'relatorio') _relatorio(obra);
                   if (v == 'editar') _editar(obra);
                   if (v == 'excluir') _excluir(obra);
                 },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
                     value: 'monitorar',
                     child: ListTile(
                       leading: Icon(Icons.notifications_outlined),
@@ -93,24 +99,34 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  PopupMenuItem(
-                    value: 'editar',
+                  const PopupMenuItem(
+                    value: 'relatorio',
                     child: ListTile(
-                      leading: Icon(Icons.edit_outlined),
-                      title: Text('Editar obra'),
+                      leading: Icon(Icons.picture_as_pdf_outlined),
+                      title: Text('Relatório PDF'),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  PopupMenuItem(
-                    value: 'excluir',
-                    child: ListTile(
-                      leading: Icon(Icons.delete_outline,
-                          color: AppColors.destructive),
-                      title: Text('Excluir',
-                          style: TextStyle(color: AppColors.destructive)),
-                      contentPadding: EdgeInsets.zero,
+                  if (ref.podeEditar('obras'))
+                    const PopupMenuItem(
+                      value: 'editar',
+                      child: ListTile(
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('Editar obra'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
-                  ),
+                  if (ref.podeExcluir('obras'))
+                    const PopupMenuItem(
+                      value: 'excluir',
+                      child: ListTile(
+                        leading: Icon(Icons.delete_outline,
+                            color: AppColors.destructive),
+                        title: Text('Excluir',
+                            style: TextStyle(color: AppColors.destructive)),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -119,15 +135,16 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
               isScrollable: true,
               tabAlignment: TabAlignment.start,
               tabs: const [
-                Tab(text: 'Visão Geral'),
-                Tab(text: 'Peças'),
+                Tab(text: 'VisÃ£o Geral'),
+                Tab(text: 'Painel'),
+                Tab(text: 'PeÃ§as'),
                 Tab(text: 'Visual'),
                 Tab(text: '3D'),
                 Tab(text: 'Insumos'),
                 Tab(text: 'Planej.'),
                 Tab(text: 'Fotos'),
                 Tab(text: 'Anexos'),
-                Tab(text: 'Histórico'),
+                Tab(text: 'HistÃ³rico'),
               ],
             ),
           ),
@@ -136,30 +153,14 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
             children: [
               ObraVisaoGeralTab(
                 obra: obra,
-                onVerPecas: () => _tabs.animateTo(1),
+                onVerPecas: () => _tabs.animateTo(2),
               ),
+              ObraPainelTab(obraId: obra.id),
               ObraPecasTab(obraId: obra.id),
-              const _EmBreveTab(
-                icon: Icons.image_outlined,
-                title: 'Painel Visual',
-                message:
-                    'O editor de mapa de montagem é uma ferramenta de tela grande. '
-                    'Será avaliado para uma versão mobile.',
-              ),
-              const _EmBreveTab(
-                icon: Icons.view_in_ar_outlined,
-                title: 'Visão 3D',
-                message:
-                    'A visualização 3D/IFC depende de renderização pesada e será '
-                    'tratada em etapa específica.',
-              ),
+              ObraVisualTab(obraId: obra.id),
+              Obra3DTab(obraId: obra.id),
               ObraInsumosTab(obraId: obra.id),
-              const _EmBreveTab(
-                icon: Icons.calendar_month_outlined,
-                title: 'Planejamento',
-                message:
-                    'O planejamento semanal/montagem será migrado em etapa própria.',
-              ),
+              ObraPlanejamentoTab(obraId: obra.id),
               ObraFotosTab(obraId: obra.id),
               ObraAnexosTab(obraId: obra.id),
               ObraHistoricoTab(obraId: obra.id, obra: obra),
@@ -170,8 +171,19 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
     );
   }
 
-  Future<void> _editar(Obra obra) async {
-    final ok = await showObraFormSheet(context, ref, obra: obra);
+  Future<void> _relatorio(Obra obra) async {
+    try {
+      final pecas = await ref.read(obrasPecasProvider(obra.id).future);
+      await ObraRelatorioService.gerar(obra: obra, pecas: pecas);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
+      }
+    }
+  }
+
+  Future<void> _editar(Obra obra) async {    final ok = await showObraFormSheet(context, ref, obra: obra);
     if (ok == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Obra atualizada!')),
@@ -198,12 +210,12 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Ative notificações para receber alertas.',
+                'Ative notificaÃ§Ãµes para receber alertas.',
                 style: TextStyle(fontSize: 13, color: AppColors.mutedForeground),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Nova peça produzida'),
+                title: const Text('Nova peÃ§a produzida'),
                 value: producao,
                 onChanged: (v) => setDialog(() => producao = v),
               ),
@@ -265,7 +277,7 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
       ref.invalidate(obraMonitoramentoProvider(obra.id));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Configurações salvas!')),
+          const SnackBar(content: Text('ConfiguraÃ§Ãµes salvas!')),
         );
       }
     } catch (e) {
@@ -296,8 +308,8 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Text(
-                'Ação irreversível. Todos os dados serão removidos: peças, '
-                'histórico, fotos e anexos.',
+                'AÃ§Ã£o irreversÃ­vel. Todos os dados serÃ£o removidos: peÃ§as, '
+                'histÃ³rico, fotos e anexos.',
                 style: TextStyle(fontSize: 12.5),
               ),
             ),
@@ -318,7 +330,7 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.destructive),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar exclusão'),
+            child: const Text('Confirmar exclusÃ£o'),
           ),
         ],
       ),
@@ -358,49 +370,5 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
             .showSnackBar(SnackBar(content: Text('Erro ao excluir: $e')));
       }
     }
-  }
-}
-
-class _EmBreveTab extends StatelessWidget {
-  const _EmBreveTab({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.10),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 40, color: AppColors.primary),
-            ),
-            const SizedBox(height: 20),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.mutedForeground),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

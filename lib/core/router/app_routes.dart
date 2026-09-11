@@ -3,6 +3,8 @@ class AppRoutes {
   AppRoutes._();
 
   static const login = '/login';
+  static const onboarding = '/onboarding';
+  static const contaBloqueada = '/conta-bloqueada';
   static const dashboard = '/dashboard';
   static const obras = '/obras';
   static String obraDetalhe(String id) => '/obras/$id';
@@ -23,6 +25,7 @@ class AppRoutes {
   static const configuracoes = '/configuracoes';
   static const minhaFatura = '/minha-fatura';
   static const suporte = '/suporte';
+  static const superAdmin = '/super-admin';
 
   static const leitorConsulta = '/leitor-consulta';
   static const leitorArmada = '/leitor-armada';

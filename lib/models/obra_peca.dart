@@ -30,6 +30,10 @@ class ObraPeca {
     this.pdfUrl,
     this.pdfStoragePath,
     this.inativada = false,
+    this.ifcArquivoId,
+    this.ifcExpressId,
+    this.ifcGlobalId,
+    this.ifcMetadata = const {},
     this.createdAt,
     this.updatedAt,
     this.pecaCatalogo,
@@ -61,6 +65,10 @@ class ObraPeca {
   final String? pdfUrl;
   final String? pdfStoragePath;
   final bool inativada;
+  final String? ifcArquivoId;
+  final int? ifcExpressId;
+  final String? ifcGlobalId;
+  final Map<String, dynamic> ifcMetadata;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final PecaCatalogo? pecaCatalogo;
@@ -97,6 +105,10 @@ class ObraPeca {
       pdfUrl: map['pdf_url'] as String?,
       pdfStoragePath: map['pdf_storage_path'] as String?,
       inativada: (map['inativada'] as bool?) ?? false,
+      ifcArquivoId: map['ifc_arquivo_id'] as String?,
+      ifcExpressId: (map['ifc_express_id'] as num?)?.toInt(),
+      ifcGlobalId: map['ifc_global_id'] as String?,
+      ifcMetadata: Parse.map(map['ifc_metadata']),
       createdAt: Parse.date(map['created_at']),
       updatedAt: Parse.date(map['updated_at']),
       pecaCatalogo: map['pecas_catalogo'] is Map

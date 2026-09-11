@@ -18,6 +18,7 @@ Future<bool?> showPlanejarSheet(
   WidgetRef ref, {
   required String tipo,
   required DateTime diaInicial,
+  String? obraIdInicial,
 }) {
   return showModalBottomSheet<bool>(
     context: context,
@@ -27,15 +28,24 @@ Future<bool?> showPlanejarSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => _PlanejarSheet(tipo: tipo, diaInicial: diaInicial),
+    builder: (_) => _PlanejarSheet(
+      tipo: tipo,
+      diaInicial: diaInicial,
+      obraIdInicial: obraIdInicial,
+    ),
   );
 }
 
 class _PlanejarSheet extends ConsumerStatefulWidget {
-  const _PlanejarSheet({required this.tipo, required this.diaInicial});
+  const _PlanejarSheet({
+    required this.tipo,
+    required this.diaInicial,
+    this.obraIdInicial,
+  });
 
   final String tipo;
   final DateTime diaInicial;
+  final String? obraIdInicial;
 
   @override
   ConsumerState<_PlanejarSheet> createState() => _PlanejarSheetState();
@@ -48,6 +58,12 @@ class _PlanejarSheetState extends ConsumerState<_PlanejarSheet> {
   String _busca = '';
   final Set<String> _selecionadas = {};
   bool _salvando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _obraId = widget.obraIdInicial;
+  }
 
   @override
   Widget build(BuildContext context) {

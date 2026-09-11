@@ -85,6 +85,31 @@ class MaisScreen extends ConsumerWidget {
                   ),
                 ),
               ],
+              if (user.isSuperAdmin) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                  child: Text(
+                    'PLATAFORMA',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: AppColors.mutedForeground,
+                    ),
+                  ),
+                ),
+                Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ListTile(
+                    leading: const Icon(Icons.admin_panel_settings_outlined,
+                        color: AppColors.primary),
+                    title: const Text('SuperAdmin'),
+                    trailing: const Icon(Icons.chevron_right,
+                        size: 20, color: AppColors.mutedForeground),
+                    onTap: () => context.push(AppRoutes.superAdmin),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),

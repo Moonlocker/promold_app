@@ -177,3 +177,80 @@ final planejamentoDiaExistenteProvider =
           .listPlanejamentoDia(arg.$1, arg.$2);
       return rows.map((p) => p.obraPecaId).whereType<String>().toSet();
     });
+
+/// Item de planejamento focado em uma obra.
+class ObraPlanoItem {
+  const ObraPlanoItem({
+    required this.planId,
+    required this.dataInicio,
+    required this.dataFim,
+    required this.identificador,
+    required this.pecaNome,
+    required this.status,
+    this.obraPecaId,
+    this.observacoes,
+    this.montagem = false,
+  });
+
+  final String planId;
+  final String dataInicio;
+  final String dataFim;
+  final String identificador;
+  final String pecaNome;
+  final String status;
+  final String? obraPecaId;
+  final String? observacoes;
+  final bool montagem;
+}
+
+/// Planejamento (armação/produção/montagem) filtrado por obra e semana.
+final obraPlanoProvider = FutureProvider.family<List<ObraPlanoItem>,
+    (String, String, DateTime)>((ref, arg) async {
+  final (obraId, tipo, semana) = arg;
+  final fim = semana.add(const Duration(days: 6));
+  final repo = ref.watch(producaoRepositoryProvider);
+  final itens = <ObraPlanoItem>[];
+
+  if (tipo == 'montagem') {
+    final rows = await repo.listMontagem(
+      Formatters.iso(semana),
+      Formatters.iso(fim),
+    );
+    for (final m in rows.map(PlanejamentoMontagem.fromMap)) {
+      if (m.obraId != obraId) continue;
+      itens.add(ObraPlanoItem(
+        planId: m.id,
+        dataInicio: m.dataInicio,
+        dataFim: m.dataFim,
+        identificador: 'Montagem',
+        pecaNome: 'Montagem da obra',
+        status: 'pendente',
+        observacoes: m.observacoes,
+        montagem: true,
+      ));
+    }
+    return itens;
+  }
+
+  final rows = await repo.listPlanejamento(
+    Formatters.iso(semana),
+    Formatters.iso(fim),
+    tipo: tipo,
+  );
+  final pecas = await ref.watch(obrasPecasProvider(obraId).future);
+  final pecasPorId = {for (final p in pecas) p.id: p};
+  for (final p in rows.where((p) => p.obraId == obraId)) {
+    final piece = p.obraPecaId != null ? pecasPorId[p.obraPecaId] : null;
+    itens.add(ObraPlanoItem(
+      planId: p.id,
+      dataInicio: p.dataInicio,
+      dataFim: p.dataFim,
+      identificador: piece?.identificador ?? 'Sem ID',
+      pecaNome: piece?.nomePeca ?? 'Peça',
+      status: piece?.status ?? 'pendente',
+      obraPecaId: p.obraPecaId,
+    ));
+  }
+  itens.sort((a, b) => a.dataInicio.compareTo(b.dataInicio));
+  return itens;
+});

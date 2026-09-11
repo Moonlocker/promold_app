@@ -15,6 +15,7 @@ import '../../../providers/obra_providers.dart';
 import '../../../providers/planejamento_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import '../../obras/widgets/obra_peca_edit_sheet.dart';
+import '../widgets/gerenciar_feriados_sheet.dart';
 import '../widgets/planejar_sheet.dart';
 
 /// Planejamento de armação, produção e montagem (módulo `planejamento`).
@@ -31,6 +32,11 @@ class PlanejamentoScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Planejamento'),
         actions: [
+          IconButton(
+            tooltip: 'Feriados',
+            icon: const Icon(Icons.event_busy_outlined),
+            onPressed: () => showGerenciarFeriadosSheet(context),
+          ),
           if (!isMontagem)
             IconButton(
               tooltip: 'Adicionar ao planejamento',

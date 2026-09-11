@@ -4,11 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/loading_view.dart';
+import '../../../core/widgets/progress_ring.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../providers/auth_providers.dart';
+import '../../../providers/equipe_providers.dart';
+import '../../../providers/obra_providers.dart';
 
 /// Dashboard inicial, espelhando as métricas de `src/pages/Dashboard.tsx`.
 class DashboardScreen extends ConsumerWidget {
@@ -20,6 +24,15 @@ class DashboardScreen extends ConsumerWidget {
     final userAsync = ref.watch(appUserProvider);
 
     final nome = userAsync.value?.displayName ?? '';
+
+    final ausencias = ref.watch(ausenciasListProvider).value ?? const [];
+    final hoje = Formatters.hojeBr();
+    final ausenciasHoje = ausencias
+        .where((a) =>
+            hoje.compareTo(a.dataInicio) >= 0 &&
+            hoje.compareTo(a.dataFim) <= 0)
+        .length;
+    final todasPecas = ref.watch(todasPecasResumoProvider).value ?? const [];
 
     return Scaffold(
       appBar: AppBar(
@@ -99,6 +112,32 @@ class DashboardScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 24),
+              if (ausenciasHoje > 0) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.warning.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_outlined,
+                          color: AppColors.warning, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '$ausenciasHoje funcionário(s) ausente(s) hoje',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -126,48 +165,84 @@ class DashboardScreen extends ConsumerWidget {
                 )
               else
                 ...data.obrasPrioritarias.map(
-                  (obra) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                  (obra) {
+                    final pecasObra =
+                        todasPecas.where((p) => p.obraId == obra.id).toList();
+                    final totalPecas = pecasObra.length;
+                    final produzido =
+                        pecasObra.where((p) => p.status != 'pendente').length;
+                    final pct = totalPecas > 0
+                        ? (produzido / totalPecas * 100).round()
+                        : 0;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Card(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => context.push(
+                              AppRoutes.obraDetalhe(obra.id)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
                               children: [
-                                Text(
-                                  '#${obra.prioridade}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.mutedForeground,
-                                    fontWeight: FontWeight.w600,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '#${obra.prioridade}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.mutedForeground,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          StatusBadge(status: obra.status),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        obra.nome,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        obra.cliente,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.mutedForeground,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '$produzido/$totalPecas peças'
+                                        '${obra.dataPrevisao != null ? ' · Prev: ${Formatters.dataBr(obra.dataPrevisao)}' : ''}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.mutedForeground,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                StatusBadge(status: obra.status),
+                                ProgressRing(
+                                  value: pct.toDouble(),
+                                  size: 48,
+                                  strokeWidth: 4,
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              obra.nome,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              obra.cliente,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.mutedForeground,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
             ],
           ),

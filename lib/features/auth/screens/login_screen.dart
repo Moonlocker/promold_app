@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../providers/supabase_providers.dart';
 
@@ -200,6 +202,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                                     )
                                   : const Text('Entrar na plataforma'),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              onPressed: _loading
+                                  ? null
+                                  : () => context.go(AppRoutes.onboarding),
+                              child: const Text('Criar conta da empresa'),
                             ),
                           ],
                         ),

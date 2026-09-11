@@ -18,6 +18,18 @@ final appUserProvider = FutureProvider<AppUser?>((ref) async {
   return ref.watch(authRepositoryProvider).loadAppUser(session.user);
 });
 
+/// Acesso rápido aos direitos granulares do usuário atual dentro do `build`.
+extension PermissoesRef on WidgetRef {
+  AppUser? get usuario => watch(appUserProvider).value;
+
+  /// Cria/edita/exclui: administradores têm acesso total; caso contrário,
+  /// respeita os flags configurados em Configurações → Permissões.
+  bool podeCriar(String? pagina) => usuario?.podeCriar(pagina) ?? true;
+  bool podeEditar(String? pagina) => usuario?.podeEditar(pagina) ?? true;
+  bool podeExcluir(String? pagina) => usuario?.podeExcluir(pagina) ?? true;
+  bool podeAcessar(String? pagina) => usuario?.podeAcessarPagina(pagina) ?? true;
+}
+
 /// Métricas do dashboard (só carrega quando há usuário autenticado).
 final dashboardMetricsProvider = FutureProvider<DashboardMetrics>((ref) async {
   final user = await ref.watch(appUserProvider.future);
