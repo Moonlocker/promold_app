@@ -4,7 +4,7 @@
     <!-- Leitura de QR Code pelas câmeras dos leitores -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <application
-        android:label="promold_app"
+        android:label="ProMold"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

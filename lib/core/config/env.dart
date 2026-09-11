@@ -16,7 +16,7 @@ class Env {
   /// `--dart-define=WEB_BASE_URL=https://seu-dominio`.
   static const String webBaseUrl = String.fromEnvironment(
     'WEB_BASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://promold.com.br',
   );
 
   static const String supabaseUrl = String.fromEnvironment(
