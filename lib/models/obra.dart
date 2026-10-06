@@ -66,4 +66,24 @@ class Obra {
     if (value == null) return null;
     return DateTime.tryParse(value as String);
   }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'nome': nome,
+        'cliente': cliente,
+        'endereco': endereco,
+        'status': status,
+        'data_inicio': dataInicio?.toIso8601String(),
+        'data_previsao': dataPrevisao?.toIso8601String(),
+        'data_conclusao': dataConclusao?.toIso8601String(),
+        'prioridade': prioridade,
+        'observacoes': observacoes,
+        'foto_url': fotoUrl,
+        'cor': cor,
+        'valor_obra': valorObra,
+        'contato_responsavel': contatoResponsavel,
+        'telefone_contato': telefoneContato,
+        'created_at': createdAt?.toIso8601String(),
+        'updated_at': updatedAt?.toIso8601String(),
+      };
 }

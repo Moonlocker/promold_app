@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/logic/qc_engine.dart';
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/qc.dart';
 
@@ -13,11 +14,16 @@ class QualidadeRepository {
 
   // ------------------------------------------------------------------- Lotes
   Future<List<QcLote>> listLotes() async {
-    final rows = await _client
-        .from('qc_lotes_concreto')
-        .select()
-        .order('data_concretagem', ascending: false);
-    return rows.map((e) => QcLote.fromMap(Map<String, dynamic>.from(e))).toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'qc:lotes',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('qc_lotes_concreto')
+            .select()
+            .order('data_concretagem', ascending: false),
+      ),
+    );
+    return rows.map((e) => QcLote.fromMap(e)).toList();
   }
 
   Future<String> saveLote(Map<String, dynamic> data, {String? id}) async {
@@ -39,15 +45,19 @@ class QualidadeRepository {
 
   // --------------------------------------------------------- Corpos de prova
   Future<List<QcCorpoProva>> listCps({String? loteId}) async {
-    final query = _client.from('qc_corpos_prova').select();
-    final rows = loteId == null
-        ? await query.order('data_moldagem', ascending: false)
-        : await query
-            .eq('lote_id', loteId)
-            .order('data_moldagem', ascending: false);
-    return rows
-        .map((e) => QcCorpoProva.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'qc:cps:${loteId ?? 'all'}',
+      () async {
+        final query = _client.from('qc_corpos_prova').select();
+        final data = loteId == null
+            ? await query.order('data_moldagem', ascending: false)
+            : await query
+                .eq('lote_id', loteId)
+                .order('data_moldagem', ascending: false);
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      },
+    );
+    return rows.map((e) => QcCorpoProva.fromMap(e)).toList();
   }
 
   Future<void> saveCp(Map<String, dynamic> data, {String? id}) async {
@@ -64,29 +74,31 @@ class QualidadeRepository {
 
   // ---------------------------------------------------------------- Ensaios
   Future<List<QcEnsaio>> listEnsaios({String? loteId}) async {
-    if (loteId != null) {
-      final cps = await _client
-          .from('qc_corpos_prova')
-          .select('id')
-          .eq('lote_id', loteId);
-      final ids = cps.map((e) => e['id'] as String).toList();
-      if (ids.isEmpty) return <QcEnsaio>[];
-      final rows = await _client
-          .from('qc_ensaios')
-          .select()
-          .inFilter('corpo_prova_id', ids)
-          .order('data_ensaio', ascending: false);
-      return rows
-          .map((e) => QcEnsaio.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
-    }
-    final rows = await _client
-        .from('qc_ensaios')
-        .select()
-        .order('data_ensaio', ascending: false);
-    return rows
-        .map((e) => QcEnsaio.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'qc:ensaios:${loteId ?? 'all'}',
+      () async {
+        if (loteId != null) {
+          final cps = await _client
+              .from('qc_corpos_prova')
+              .select('id')
+              .eq('lote_id', loteId);
+          final ids = cps.map((e) => e['id'] as String).toList();
+          if (ids.isEmpty) return <Map<String, dynamic>>[];
+          final data = await _client
+              .from('qc_ensaios')
+              .select()
+              .inFilter('corpo_prova_id', ids)
+              .order('data_ensaio', ascending: false);
+          return data.map((e) => Map<String, dynamic>.from(e)).toList();
+        }
+        final data = await _client
+            .from('qc_ensaios')
+            .select()
+            .order('data_ensaio', ascending: false);
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      },
+    );
+    return rows.map((e) => QcEnsaio.fromMap(e)).toList();
   }
 
   Future<void> saveEnsaio(Map<String, dynamic> data, {String? id}) async {
@@ -103,10 +115,13 @@ class QualidadeRepository {
 
   // ---------------------------------------------------------------- Padrões
   Future<List<QcPadrao>> listPadroes() async {
-    final rows = await _client.from('qc_padroes_codigo').select();
-    return rows
-        .map((e) => QcPadrao.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'qc:padroes',
+      () async => List<Map<String, dynamic>>.from(
+        await _client.from('qc_padroes_codigo').select(),
+      ),
+    );
+    return rows.map((e) => QcPadrao.fromMap(e)).toList();
   }
 
   Future<void> savePadrao(Map<String, dynamic> data, {String? id}) async {

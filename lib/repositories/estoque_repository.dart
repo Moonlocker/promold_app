@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/estoque.dart';
 
@@ -17,12 +18,17 @@ class EstoqueRepository {
 
   // --------------------------------------------------------------- Estoques
   Future<List<Estoque>> listEstoques() async {
-    final rows = await _client
-        .from('estoques')
-        .select()
-        .neq('nome', Estoque.nomeSistema)
-        .order('nome');
-    return rows.map((e) => Estoque.fromMap(Map<String, dynamic>.from(e))).toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'estoque:estoques',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('estoques')
+            .select()
+            .neq('nome', Estoque.nomeSistema)
+            .order('nome'),
+      ),
+    );
+    return rows.map((e) => Estoque.fromMap(e)).toList();
   }
 
   Future<Estoque> createEstoque(Map<String, dynamic> data) async {
@@ -68,15 +74,18 @@ class EstoqueRepository {
 
   // ------------------------------------------------------------- Peças
   Future<List<PecaEmEstoque>> listPecasEmEstoque() async {
-    final rows = await _client
-        .from('obras_pecas')
-        .select(
-            'id, obra_id, peca_catalogo_id, identificador, comprimento, data_concretagem, estoque_id, status, pecas_catalogo(nome, categoria_id), obras(nome, cor)')
-        .eq('status', 'em_estoque')
-        .order('identificador');
-    return rows
-        .map((e) => PecaEmEstoque.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'estoque:pecas_em_estoque',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('obras_pecas')
+            .select(
+                'id, obra_id, peca_catalogo_id, identificador, comprimento, data_concretagem, estoque_id, status, pecas_catalogo(nome, categoria_id), obras(nome, cor)')
+            .eq('status', 'em_estoque')
+            .order('identificador'),
+      ),
+    );
+    return rows.map((e) => PecaEmEstoque.fromMap(e)).toList();
   }
 
   Future<void> linkPeca(String pecaId, String estoqueId) async {
@@ -93,15 +102,18 @@ class EstoqueRepository {
 
   // -------------------------------------------------------- Compartimentos
   Future<List<Compartimento>> listCompartimentos(String estoqueId) async {
-    final rows = await _client
-        .from('compartimentos')
-        .select()
-        .eq('estoque_id', estoqueId)
-        .neq('nome', _nomeLink)
-        .order('nome');
-    return rows
-        .map((e) => Compartimento.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'estoque:compartimentos:$estoqueId',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('compartimentos')
+            .select()
+            .eq('estoque_id', estoqueId)
+            .neq('nome', _nomeLink)
+            .order('nome'),
+      ),
+    );
+    return rows.map((e) => Compartimento.fromMap(e)).toList();
   }
 
   Future<void> createCompartimento(

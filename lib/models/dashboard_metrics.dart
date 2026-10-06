@@ -23,4 +23,26 @@ class DashboardMetrics {
     concretoSemanaM3: 0,
     obrasPrioritarias: <Obra>[],
   );
+
+  Map<String, dynamic> toMap() => {
+        'obrasAtivas': obrasAtivas,
+        'producaoHoje': producaoHoje,
+        'pecasPendentes': pecasPendentes,
+        'concretoSemanaM3': concretoSemanaM3,
+        'obrasPrioritarias':
+            obrasPrioritarias.map((o) => o.toMap()).toList(),
+      };
+
+  factory DashboardMetrics.fromMap(Map<String, dynamic> map) {
+    return DashboardMetrics(
+      obrasAtivas: (map['obrasAtivas'] as num?)?.toInt() ?? 0,
+      producaoHoje: (map['producaoHoje'] as num?)?.toInt() ?? 0,
+      pecasPendentes: (map['pecasPendentes'] as num?)?.toInt() ?? 0,
+      concretoSemanaM3: (map['concretoSemanaM3'] as num?)?.toDouble() ?? 0,
+      obrasPrioritarias: ((map['obrasPrioritarias'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => Obra.fromMap(Map<String, dynamic>.from(e)))
+          .toList(),
+    );
+  }
 }

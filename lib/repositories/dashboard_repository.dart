@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../core/utils/formatters.dart';
 import '../models/dashboard_metrics.dart';
@@ -13,7 +14,17 @@ class DashboardRepository {
 
   final SupabaseClient _client;
 
+  /// Métricas do dashboard (cache-first: offline usa o último resultado).
   Future<DashboardMetrics> load() async {
+    final cached = await OfflineDatabase.instance.cachedRow(
+      'dashboard:metrics',
+      () async => (await _load()).toMap(),
+    );
+    if (cached == null) return DashboardMetrics.empty;
+    return DashboardMetrics.fromMap(cached);
+  }
+
+  Future<DashboardMetrics> _load() async {
     final hoje = Formatters.hojeBr();
     final (inicioSemana, fimSemana) = Formatters.semanaAtualBr();
 
