@@ -36,6 +36,23 @@ class FinanceiroRepository {
     await _client.from(_tabela(tipo)).insert(data);
   }
 
+  /// Cria a conta e retorna o id (usado para vincular à nota fiscal).
+  Future<String> createContaRetornandoId(
+    String tipo,
+    Map<String, dynamic> data,
+  ) async {
+    final row =
+        await _client.from(_tabela(tipo)).insert(data).select('id').single();
+    return row['id'] as String;
+  }
+
+  /// Vincula uma nota fiscal emitida à conta a receber gerada.
+  Future<void> vincularNotaContaReceber(String notaId, String contaId) async {
+    await _client
+        .from('notas_fiscais')
+        .update({'conta_receber_id': contaId}).eq('id', notaId);
+  }
+
   Future<void> createParcelas(String tipo, List<Map<String, dynamic>> data) async {
     await _client.from(_tabela(tipo)).insert(data);
   }

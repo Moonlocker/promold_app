@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,11 +17,37 @@ import '../../../providers/supabase_providers.dart';
 import '../../obras/widgets/obra_peca_edit_sheet.dart';
 
 /// Painel da Fábrica (módulo `painel-fabrica` no webapp).
-class PainelFabricaScreen extends ConsumerWidget {
+///
+/// Atualiza automaticamente a cada 30s, para uso em telão no chão de fábrica.
+class PainelFabricaScreen extends ConsumerStatefulWidget {
   const PainelFabricaScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PainelFabricaScreen> createState() =>
+      _PainelFabricaScreenState();
+}
+
+class _PainelFabricaScreenState extends ConsumerState<PainelFabricaScreen> {
+  Timer? _refresh;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      ref.invalidate(painelDadosProvider);
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dadosAsync = ref.watch(painelDadosProvider);
     final tipo = ref.watch(painelTipoProvider);
     final isArmacao = tipo == 'armacao';

@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../models/nota_fiscal.dart';
+import '../../../providers/cadastros_providers.dart';
+import '../../../providers/financeiro_providers.dart';
 import '../../../providers/fiscal_providers.dart';
+import '../../../providers/supabase_providers.dart';
 
 /// Detalhe de uma nota fiscal (dados + itens).
 Future<void> showNotaDetalheSheet(
@@ -117,10 +120,178 @@ class _NotaDetalheSheet extends ConsumerWidget {
                 ),
               ],
             ),
+            if (_podeGerarConta(nota))
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: FilledButton.icon(
+                  onPressed: () => _gerarContaReceber(context, ref, nota),
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('Gerar conta a receber'),
+                ),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  static bool _podeGerarConta(NotaFiscal n) =>
+      n.contaReceberId == null && n.status == 'autorizada';
+
+  Future<void> _gerarContaReceber(
+    BuildContext context,
+    WidgetRef ref,
+    NotaFiscal nota,
+  ) async {
+    final cats =
+        ref.read(categoriasFinanceirasListProvider).value ?? const [];
+    final desc = TextEditingController(
+      text: 'NF ${nota.numero ?? ''}/${nota.serie ?? ''} - '
+          '${nota.clienteNome ?? ''}',
+    );
+    final valor = TextEditingController(
+      text: (nota.valorTotal ?? 0).toStringAsFixed(2),
+    );
+    var vencimento = DateTime.now().add(const Duration(days: 30));
+    final obs = TextEditingController(
+      text: nota.chaveAcesso != null ? 'Chave NFe: ${nota.chaveAcesso}' : '',
+    );
+    String? categoriaId;
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            20 +
+                MediaQuery.of(context).viewInsets.bottom +
+                MediaQuery.of(context).padding.bottom,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Adicionar a Contas a Receber',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: desc,
+                  decoration: const InputDecoration(labelText: 'Descrição *'),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: valor,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration:
+                            const InputDecoration(labelText: 'Valor (R\$)'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: vencimento,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setSheet(() => vencimento = picked);
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration:
+                              const InputDecoration(labelText: 'Vencimento'),
+                          child: Text(Formatters.dataBr(vencimento)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (cats.isNotEmpty)
+                  DropdownButtonFormField<String>(
+                    initialValue: categoriaId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Categoria'),
+                    items: cats
+                        .map((c) => DropdownMenuItem(
+                              value: c.id,
+                              child: Text(c.nome,
+                                  overflow: TextOverflow.ellipsis),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setSheet(() => categoriaId = v),
+                  ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: obs,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Observações'),
+                ),
+                const SizedBox(height: 18),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Criar conta a receber'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    final v = double.tryParse(valor.text.replaceAll(',', '.'));
+    if (v == null || v <= 0 || desc.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe descrição e valor válidos')),
+      );
+      return;
+    }
+    try {
+      final repo = ref.read(financeiroRepositoryProvider);
+      final contaId = await repo.createContaRetornandoId('receber', {
+        'descricao': desc.text.trim(),
+        'valor': v,
+        'data_vencimento': vencimento.toIso8601String().split('T').first,
+        'categoria_id': categoriaId,
+        'cliente_id': nota.clienteId,
+        'cliente': nota.clienteNome,
+        'observacoes': obs.text.trim().isEmpty ? null : obs.text.trim(),
+        'nota_fiscal_id': nota.id,
+        'status': 'pendente',
+      });
+      await repo.vincularNotaContaReceber(nota.id, contaId);
+      ref.invalidate(contasReceberListProvider);
+      ref.invalidate(notasFiscaisProvider);
+      if (context.mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        Navigator.of(context).pop();
+        messenger.showSnackBar(const SnackBar(
+            content: Text('Conta a receber criada e vinculada à nota')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro: $e')));
+      }
+    }
   }
 
   Widget _linha(String label, String valor) {

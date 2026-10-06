@@ -143,11 +143,52 @@ class _OrcamentoCard extends ConsumerWidget {
           '${orcamento.dataCriacao != null ? ' · ${Formatters.dataBr(DateTime.tryParse(orcamento.dataCriacao!))}' : ''}',
           style: const TextStyle(fontSize: 12.5),
         ),
-        trailing: Text(
-          Formatters.moeda(orcamento.valorTotal ?? 0),
-          style: const TextStyle(fontWeight: FontWeight.w700),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              Formatters.moeda(orcamento.valorTotal ?? 0),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (v) {
+                if (v == 'duplicar') _duplicar(context, ref);
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'duplicar', child: Text('Duplicar')),
+              ],
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Future<void> _duplicar(BuildContext context, WidgetRef ref) async {
+    try {
+      final novoId = await ref
+          .read(orcamentoComposicoesRepositoryProvider)
+          .duplicarOrcamento(orcamento.id);
+      ref.invalidate(orcamentosListProvider);
+      final novo = await ref.read(sistemaRepositoryProvider).getOrcamento(novoId);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Orçamento duplicado')),
+      );
+      if (novo != null) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => OrcamentoDetalheScreen(orcamento: novo),
+          ),
+        );
+        onChanged();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao duplicar: $e')));
+      }
+    }
   }
 }

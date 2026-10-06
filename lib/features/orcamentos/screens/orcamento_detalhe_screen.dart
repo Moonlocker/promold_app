@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/env.dart';
 import '../../../core/theme/app_colors.dart';
@@ -170,6 +171,13 @@ class OrcamentoDetalheScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              if (ref.podeEditar('orcamentos'))
+                FilledButton.icon(
+                  onPressed: () => _aprovarGerarObra(context, ref, o, itens),
+                  icon: const Icon(Icons.add_business_outlined),
+                  label: const Text('Aprovar e gerar obra'),
+                ),
+              const SizedBox(height: 16),
               Card(
                 child: Column(
                   children: [
@@ -224,6 +232,169 @@ class OrcamentoDetalheScreen extends ConsumerWidget {
   static String _gerarCodigo() {
     final now = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
     return now.toUpperCase().padLeft(8, '0').substring(0, 8);
+  }
+
+  Future<void> _aprovarGerarObra(
+    BuildContext context,
+    WidgetRef ref,
+    Orcamento o,
+    List<Map<String, dynamic>> itens,
+  ) async {
+    final nome = TextEditingController(text: o.cliente);
+    final cliente = TextEditingController(text: o.cliente);
+    final endereco = TextEditingController(text: o.endereco ?? '');
+    var prioridade = 1;
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            20 +
+                MediaQuery.of(context).viewInsets.bottom +
+                MediaQuery.of(context).padding.bottom,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Aprovar e gerar obra',
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text('Orçamento #${o.numeroOrcamento} → nova obra',
+                    style: const TextStyle(
+                        fontSize: 12.5, color: AppColors.mutedForeground)),
+                const SizedBox(height: 14),
+                TextField(
+                    controller: nome,
+                    decoration:
+                        const InputDecoration(labelText: 'Nome da obra *')),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: cliente,
+                    decoration:
+                        const InputDecoration(labelText: 'Cliente *')),
+                const SizedBox(height: 10),
+                TextField(
+                    controller: endereco,
+                    decoration:
+                        const InputDecoration(labelText: 'Endereço')),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<int>(
+                  initialValue: prioridade,
+                  decoration: const InputDecoration(labelText: 'Prioridade'),
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('1 - Baixa')),
+                    DropdownMenuItem(value: 2, child: Text('2')),
+                    DropdownMenuItem(value: 3, child: Text('3 - Média')),
+                    DropdownMenuItem(value: 4, child: Text('4')),
+                    DropdownMenuItem(value: 5, child: Text('5 - Alta')),
+                  ],
+                  onChanged: (v) => setSheet(() => prioridade = v ?? 1),
+                ),
+                const SizedBox(height: 18),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text('Criar obra com ${itens.length} tipo(s)'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    if (nome.text.trim().isEmpty || cliente.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe nome e cliente')),
+      );
+      return;
+    }
+
+    try {
+      final catalogo = ref.read(pecasCatalogoListProvider).value ?? const [];
+      final porId = {for (final c in catalogo) c.id: c};
+      final obra = await ref.read(obrasRepositoryProvider).createObra({
+        'nome': nome.text.trim(),
+        'cliente': cliente.text.trim(),
+        'endereco': _nz(endereco.text),
+        'status': 'planejamento',
+        'prioridade': prioridade,
+        'cor': '#3B82F6',
+        'valor_obra': o.valorTotal,
+        'orcamento_id': o.id,
+        'contato_responsavel': o.contatoResponsavel,
+        'telefone_contato': o.telefoneContato,
+      });
+
+      final seqPorPrefixo = <String, int>{};
+      final rows = <Map<String, dynamic>>[];
+      for (final it in itens) {
+        final pecaId = it['peca_catalogo_id'] as String?;
+        if (pecaId == null) continue;
+        final pc = porId[pecaId];
+        final qtd = ((it['quantidade'] as num?)?.toInt() ?? 1).clamp(1, 100000);
+        final prefixo =
+            (pc?.identificadorPadrao?.trim().isNotEmpty ?? false)
+                ? pc!.identificadorPadrao!.trim()
+                : 'P';
+        var seq = seqPorPrefixo[prefixo] ?? 0;
+        final isLinear =
+            (pc?.larguraPadrao ?? 0) > 0 || (pc?.alturaPadrao ?? 0) > 0;
+        for (var i = 0; i < qtd; i++) {
+          seq++;
+          final row = <String, dynamic>{
+            'obra_id': obra.id,
+            'peca_catalogo_id': pecaId,
+            'identificador': '$prefixo-${seq.toString().padLeft(2, '0')}',
+            'status': 'pendente',
+          };
+          if (isLinear) {
+            row['largura'] = pc?.larguraPadrao;
+            row['altura'] = pc?.alturaPadrao;
+            row['comprimento'] = pc?.comprimentoPadrao;
+          } else {
+            row['comprimento'] = pc?.comprimentoPadrao;
+            row['volume_concreto_por_metro'] = pc?.volumeConcretoPorMetro;
+          }
+          if (pc?.kgAcoPorMetro != null) {
+            row['kg_aco_por_metro'] = pc!.kgAcoPorMetro;
+          }
+          rows.add(row);
+        }
+        seqPorPrefixo[prefixo] = seq;
+      }
+      if (rows.isNotEmpty) {
+        await ref.read(obrasRepositoryProvider).createPecas(rows);
+      }
+      await ref
+          .read(sistemaRepositoryProvider)
+          .updateOrcamento(o.id, {'status': 'aprovado'});
+      ref.invalidate(obrasListProvider);
+      ref.invalidate(orcamentoProvider(o.id));
+      ref.invalidate(orcamentosListProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Obra criada com ${rows.length} peça(s)!')),
+        );
+        context.go('/obras/${obra.id}');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro: $e')));
+      }
+    }
   }
 
   Future<void> _recalcularTotal(WidgetRef ref, Orcamento o) async {

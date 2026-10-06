@@ -227,4 +227,89 @@ class OrcamentoComposicoesRepository {
     }
     return total;
   }
+
+  /// Duplica um orçamento inteiro (dados, itens, etapas, composições e insumos).
+  /// Retorna o id do novo orçamento (status `rascunho`).
+  Future<String> duplicarOrcamento(String orcamentoId) async {
+    final orig = await _client
+        .from('orcamentos')
+        .select()
+        .eq('id', orcamentoId)
+        .single();
+    final novo = Map<String, dynamic>.from(orig)
+      ..remove('id')
+      ..remove('numero_orcamento')
+      ..remove('created_at')
+      ..remove('updated_at');
+    novo['status'] = 'rascunho';
+    novo['codigo_publico'] = null;
+    novo['link_publico_ativo'] = false;
+    final created = await _client
+        .from('orcamentos')
+        .insert(novo)
+        .select('id')
+        .single();
+    final novoId = created['id'] as String;
+
+    // Itens.
+    final itens = await _client
+        .from('orcamentos_itens')
+        .select()
+        .eq('orcamento_id', orcamentoId);
+    if (itens.isNotEmpty) {
+      final rows = itens
+          .map((e) => Map<String, dynamic>.from(e)
+            ..remove('id')
+            ..['orcamento_id'] = novoId)
+          .toList();
+      await _client.from('orcamentos_itens').insert(rows);
+    }
+
+    // Etapas → composições → insumos.
+    final etapas = await _client
+        .from('orcamentos_etapas')
+        .select()
+        .eq('orcamento_id', orcamentoId)
+        .order('ordem');
+    for (final e in etapas) {
+      final novaEtapa = await _client
+          .from('orcamentos_etapas')
+          .insert(Map<String, dynamic>.from(e)
+            ..remove('id')
+            ..['orcamento_id'] = novoId)
+          .select('id')
+          .single();
+      final novaEtapaId = novaEtapa['id'] as String;
+
+      final comps = await _client
+          .from('orcamentos_composicoes')
+          .select()
+          .eq('etapa_id', e['id'] as String)
+          .order('ordem');
+      for (final c in comps) {
+        final novaComp = await _client
+            .from('orcamentos_composicoes')
+            .insert(Map<String, dynamic>.from(c)
+              ..remove('id')
+              ..['etapa_id'] = novaEtapaId)
+            .select('id')
+            .single();
+        final novaCompId = novaComp['id'] as String;
+
+        final insumos = await _client
+            .from('orcamentos_composicoes_insumos')
+            .select()
+            .eq('orcamento_composicao_id', c['id'] as String);
+        if (insumos.isNotEmpty) {
+          final insRows = insumos
+              .map((i) => Map<String, dynamic>.from(i)
+                ..remove('id')
+                ..['orcamento_composicao_id'] = novaCompId)
+              .toList();
+          await _client.from('orcamentos_composicoes_insumos').insert(insRows);
+        }
+      }
+    }
+    return novoId;
+  }
 }
