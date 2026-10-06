@@ -10,7 +10,7 @@ import '../../../models/categoria_financeira.dart';
 import '../../../providers/cadastros_providers.dart';
 import '../../../providers/supabase_providers.dart';
 
-/// MÃ³dulo Categorias Financeiras.
+/// Módulo Categorias Financeiras.
 class CategoriasFinanceirasScreen extends ConsumerStatefulWidget {
   const CategoriasFinanceirasScreen({super.key});
 
@@ -62,7 +62,7 @@ class _CategoriasFinanceirasScreenState
                   return const EmptyState(
                     icon: Icons.sell_outlined,
                     title: 'Nenhuma categoria',
-                    message: 'Cadastre categorias para classificar lanÃ§amentos.',
+                    message: 'Cadastre categorias para classificar lançamentos.',
                   );
                 }
                 return RefreshIndicator(
@@ -230,7 +230,7 @@ class _CategoriaCard extends ConsumerWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content:
-                  Text('Em uso em $uso lanÃ§amento(s). NÃ£o Ã© possÃ­vel excluir.'),
+                  Text('Em uso em $uso lançamento(s). Não é possível excluir.'),
             ),
           );
           return;

@@ -61,7 +61,7 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
         if (obra == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Obra')),
-            body: const Center(child: Text('Esta obra nÃ£o existe ou foi removida.')),
+            body: const Center(child: Text('Esta obra não existe ou foi removida.')),
           );
         }
         return Scaffold(
@@ -135,16 +135,16 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
               isScrollable: true,
               tabAlignment: TabAlignment.start,
               tabs: const [
-                Tab(text: 'VisÃ£o Geral'),
+                Tab(text: 'Visão Geral'),
                 Tab(text: 'Painel'),
-                Tab(text: 'PeÃ§as'),
+                Tab(text: 'Peças'),
                 Tab(text: 'Visual'),
                 Tab(text: '3D'),
                 Tab(text: 'Insumos'),
                 Tab(text: 'Planej.'),
                 Tab(text: 'Fotos'),
                 Tab(text: 'Anexos'),
-                Tab(text: 'HistÃ³rico'),
+                Tab(text: 'Histórico'),
               ],
             ),
           ),
@@ -210,12 +210,12 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Ative notificaÃ§Ãµes para receber alertas.',
+                'Ative notificações para receber alertas.',
                 style: TextStyle(fontSize: 13, color: AppColors.mutedForeground),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Nova peÃ§a produzida'),
+                title: const Text('Nova peça produzida'),
                 value: producao,
                 onChanged: (v) => setDialog(() => producao = v),
               ),
@@ -277,7 +277,7 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
       ref.invalidate(obraMonitoramentoProvider(obra.id));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ConfiguraÃ§Ãµes salvas!')),
+          const SnackBar(content: Text('Configurações salvas!')),
         );
       }
     } catch (e) {
@@ -308,8 +308,8 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Text(
-                'AÃ§Ã£o irreversÃ­vel. Todos os dados serÃ£o removidos: peÃ§as, '
-                'histÃ³rico, fotos e anexos.',
+                'Ação irreversível. Todos os dados serão removidos: peças, '
+                'histórico, fotos e anexos.',
                 style: TextStyle(fontSize: 12.5),
               ),
             ),
@@ -330,7 +330,7 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.destructive),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar exclusÃ£o'),
+            child: const Text('Confirmar exclusão'),
           ),
         ],
       ),

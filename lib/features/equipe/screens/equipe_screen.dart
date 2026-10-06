@@ -16,7 +16,7 @@ import '../../../providers/supabase_providers.dart';
 import '../widgets/ausencia_form_sheet.dart';
 import '../widgets/funcionario_form_sheet.dart';
 
-/// MÃ³dulo Equipe: funcionÃ¡rios, setores, cargos e ausÃªncias.
+/// Módulo Equipe: funcionários, setores, cargos e ausências.
 class EquipeScreen extends StatelessWidget {
   const EquipeScreen({super.key});
 
@@ -33,7 +33,7 @@ class EquipeScreen extends StatelessWidget {
               Tab(text: 'Colaboradores'),
               Tab(text: 'Setores'),
               Tab(text: 'Cargos'),
-              Tab(text: 'AusÃªncias'),
+              Tab(text: 'Ausências'),
             ],
           ),
         ),
@@ -50,7 +50,7 @@ class EquipeScreen extends StatelessWidget {
   }
 }
 
-// ============================================================ FuncionÃ¡rios
+// ============================================================ Funcionários
 
 class _FuncionariosTab extends ConsumerStatefulWidget {
   const _FuncionariosTab();
@@ -137,7 +137,7 @@ class _FuncionariosTabState extends ConsumerState<_FuncionariosTab> {
                   onChanged: (v) => setState(() => _busca = v),
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search, size: 20),
-                    hintText: 'Buscar funcionÃ¡rio...',
+                    hintText: 'Buscar funcionário...',
                     isDense: true,
                   ),
                 ),
@@ -188,7 +188,7 @@ class _FuncionariosTabState extends ConsumerState<_FuncionariosTab> {
                     padding: EdgeInsets.only(top: 48),
                     child: EmptyState(
                       icon: Icons.groups_outlined,
-                      title: 'Nenhum funcionÃ¡rio',
+                      title: 'Nenhum funcionário',
                     ),
                   )
                 else
@@ -250,7 +250,7 @@ class _FuncionarioCard extends ConsumerWidget {
           [
             funcionario.cargoNome ?? '-',
             funcionario.setorNome ?? '-',
-          ].join(' Â· '),
+          ].join(' · '),
           style: const TextStyle(fontSize: 12.5),
         ),
         trailing: ref.podeExcluir('equipe')
@@ -260,7 +260,7 @@ class _FuncionarioCard extends ConsumerWidget {
                     final confirmar = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
-                        title: const Text('Excluir funcionÃ¡rio'),
+                        title: const Text('Excluir funcionário'),
                         content: Text('Excluir "${funcionario.nome}"?'),
                         actions: [
                           TextButton(
@@ -345,8 +345,8 @@ class _SetoresTab extends ConsumerWidget {
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(
                         s.descricao?.isNotEmpty == true
-                            ? '${s.descricao}\n$nFunc funcionÃ¡rios Â· $nCargos cargos'
-                            : '$nFunc funcionÃ¡rios Â· $nCargos cargos',
+                            ? '${s.descricao}\n$nFunc funcionários · $nCargos cargos'
+                            : '$nFunc funcionários · $nCargos cargos',
                       ),
                       isThreeLine: s.descricao?.isNotEmpty == true,
                       trailing: ref.podeExcluir('equipe')
@@ -359,7 +359,7 @@ class _SetoresTab extends ConsumerWidget {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
-                                            'Setor possui funcionÃ¡rios/cargos vinculados'),
+                                            'Setor possui funcionários/cargos vinculados'),
                                       ),
                                     );
                                     return;
@@ -402,7 +402,7 @@ class _SetoresTab extends ConsumerWidget {
             key: 'nome', label: 'Nome *', initial: setor?.nome, required: true),
         SimpleField(
             key: 'descricao',
-            label: 'DescriÃ§Ã£o',
+            label: 'Descrição',
             initial: setor?.descricao,
             maxLines: 3),
       ],
@@ -475,7 +475,7 @@ class _CargosTab extends ConsumerWidget {
                           c.setorNome ?? '-',
                           if (c.salario != null) Formatters.moeda(c.salario!),
                           '$nFunc func.',
-                        ].join(' Â· '),
+                        ].join(' · '),
                       ),
                       trailing: ref.podeExcluir('equipe')
                           ? PopupMenuButton<String>(
@@ -485,7 +485,7 @@ class _CargosTab extends ConsumerWidget {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                           content: Text(
-                                              'Cargo possui funcionÃ¡rios vinculados')),
+                                              'Cargo possui funcionários vinculados')),
                                     );
                                     return;
                                   }
@@ -541,12 +541,12 @@ class _CargosTab extends ConsumerWidget {
         ),
         SimpleField(
             key: 'salario',
-            label: 'SalÃ¡rio base (R\$)',
+            label: 'Salário base (R\$)',
             initial: cargo?.salario?.toString(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true)),
         SimpleField(
             key: 'descricao',
-            label: 'DescriÃ§Ã£o',
+            label: 'Descrição',
             initial: cargo?.descricao,
             maxLines: 2),
       ],
@@ -569,7 +569,7 @@ class _CargosTab extends ConsumerWidget {
   }
 }
 
-// =============================================================== AusÃªncias
+// =============================================================== Ausências
 
 class _AusenciasTab extends ConsumerStatefulWidget {
   const _AusenciasTab();
@@ -618,7 +618,7 @@ class _AusenciasTabState extends ConsumerState<_AusenciasTab> {
                   onChanged: (v) => setState(() => _busca = v),
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search, size: 20),
-                    hintText: 'Buscar funcionÃ¡rio...',
+                    hintText: 'Buscar funcionário...',
                     isDense: true,
                   ),
                 ),
@@ -632,8 +632,8 @@ class _AusenciasTabState extends ConsumerState<_AusenciasTab> {
                     DropdownMenuItem(value: 'all', child: Text('Todos')),
                     DropdownMenuItem(value: 'falta', child: Text('Falta')),
                     DropdownMenuItem(value: 'atestado', child: Text('Atestado')),
-                    DropdownMenuItem(value: 'ferias', child: Text('FÃ©rias')),
-                    DropdownMenuItem(value: 'licenca', child: Text('LicenÃ§a')),
+                    DropdownMenuItem(value: 'ferias', child: Text('Férias')),
+                    DropdownMenuItem(value: 'licenca', child: Text('Licença')),
                     DropdownMenuItem(value: 'outro', child: Text('Outro')),
                   ],
                   onChanged: (v) => setState(() => _tipo = v ?? 'all'),
@@ -644,7 +644,7 @@ class _AusenciasTabState extends ConsumerState<_AusenciasTab> {
                     padding: EdgeInsets.only(top: 48),
                     child: EmptyState(
                       icon: Icons.event_busy_outlined,
-                      title: 'Nenhuma ausÃªncia registrada',
+                      title: 'Nenhuma ausência registrada',
                     ),
                   )
                 else
@@ -699,7 +699,7 @@ class _AusenciaCard extends ConsumerWidget {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
-          '$periodo${(ausencia.motivo ?? '').isNotEmpty ? ' Â· ${ausencia.motivo}' : ''}',
+          '$periodo${(ausencia.motivo ?? '').isNotEmpty ? ' · ${ausencia.motivo}' : ''}',
         ),
         leading: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -720,7 +720,7 @@ class _AusenciaCard extends ConsumerWidget {
                 onPressed: () async {
                   final ok = await _confirmar(
                     context,
-                    ausencia.funcionarioNome ?? 'esta ausÃªncia',
+                    ausencia.funcionarioNome ?? 'esta ausência',
                   );
                   if (ok == true) {
                     await ref
@@ -775,7 +775,7 @@ Future<bool?> _confirmar(BuildContext context, String nome) {
   return showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Confirmar exclusÃ£o'),
+      title: const Text('Confirmar exclusão'),
       content: Text('Excluir "$nome"?'),
       actions: [
         TextButton(

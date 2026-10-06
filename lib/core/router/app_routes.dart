@@ -10,6 +10,7 @@ class AppRoutes {
   static String obraDetalhe(String id) => '/obras/$id';
   static const producao = '/producao';
   static const estoque = '/estoque';
+  static const leitores = '/leitores';
   static const mais = '/mais';
 
   // Demais módulos (navegáveis pela tela "Mais").

@@ -74,7 +74,7 @@ class _NotasEmitidasScreenState extends ConsumerState<NotasEmitidasScreen> {
                   onChanged: (v) => setState(() => _busca = v),
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search, size: 20),
-                    hintText: 'Buscar por cliente, nÃºmero, chave...',
+                    hintText: 'Buscar por cliente, número, chave...',
                     isDense: true,
                   ),
                 ),
@@ -140,7 +140,7 @@ class _NotaCard extends ConsumerWidget {
             Expanded(
               child: Text(
                 nota.numero != null
-                    ? 'NÂº ${nota.numero}/${nota.serie}'
+                    ? 'Nº ${nota.numero}/${nota.serie}'
                     : '(rascunho)',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
@@ -160,8 +160,8 @@ class _NotaCard extends ConsumerWidget {
           ],
         ),
         subtitle: Text(
-          '${nota.clienteNome ?? 'â€”'} Â· ${nota.tipoDocumento.toUpperCase()} Â· ${nota.ambiente}\n'
-          '${nota.dataEmissao != null ? Formatters.dataHoraBr(DateTime.tryParse(nota.dataEmissao!)) : 'â€”'} Â· ${Formatters.moeda(nota.valorTotal ?? 0)}',
+          '${nota.clienteNome ?? '—'} · ${nota.tipoDocumento.toUpperCase()} · ${nota.ambiente}\n'
+          '${nota.dataEmissao != null ? Formatters.dataHoraBr(DateTime.tryParse(nota.dataEmissao!)) : '—'} · ${Formatters.moeda(nota.valorTotal ?? 0)}',
           style: const TextStyle(fontSize: 12),
         ),
         isThreeLine: true,
@@ -181,7 +181,7 @@ class _NotaCard extends ConsumerWidget {
               const PopupMenuItem(value: 'emitir', child: Text('Emitir nota')),
             if (ref.podeEditar('fiscal-notas') && nota.status == 'autorizada') ...[
               const PopupMenuItem(
-                  value: 'cce', child: Text('Carta de correÃ§Ã£o')),
+                  value: 'cce', child: Text('Carta de correção')),
               const PopupMenuItem(
                 value: 'cancelar',
                 child: Text('Cancelar nota',
@@ -213,30 +213,30 @@ class _NotaCard extends ConsumerWidget {
             'Status sincronizado');
       case 'emitir':
         await _executar(context, () => repo.acaoNfe('emitir', {'nota_id': nota.id}),
-            'Nota enviada para emissÃ£o');
+            'Nota enviada para emissão');
       case 'cce':
         final texto = await _pedirTexto(
           context,
-          titulo: 'Carta de correÃ§Ã£o',
-          label: 'Texto da correÃ§Ã£o',
+          titulo: 'Carta de correção',
+          label: 'Texto da correção',
         );
         if (texto != null && texto.trim().length >= 15 && context.mounted) {
           await _executar(
             context,
             () => repo.acaoNfe(
                 'carta_correcao', {'nota_id': nota.id, 'texto': texto}),
-            'Carta de correÃ§Ã£o enviada',
+            'Carta de correção enviada',
           );
         } else if (texto != null && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('MÃ­nimo de 15 caracteres')),
+            const SnackBar(content: Text('Mínimo de 15 caracteres')),
           );
         }
       case 'cancelar':
         final motivo = await _pedirTexto(
           context,
           titulo: 'Cancelar nota',
-          label: 'Motivo (mÃ­n. 15 caracteres)',
+          label: 'Motivo (mín. 15 caracteres)',
         );
         if (motivo != null && motivo.trim().length >= 15 && context.mounted) {
           await _executar(
@@ -247,7 +247,7 @@ class _NotaCard extends ConsumerWidget {
           );
         } else if (motivo != null && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('MÃ­nimo de 15 caracteres')),
+            const SnackBar(content: Text('Mínimo de 15 caracteres')),
           );
         }
     }

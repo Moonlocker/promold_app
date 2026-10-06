@@ -96,23 +96,32 @@ class _Obra3DViewerState extends State<Obra3DViewer> {
         _dim(p.altura, p.pecaCatalogo?.alturaPadrao, 0.4).clamp(0.2, 5);
 
     var maxLen = 0.0;
+    var maxWid = 0.0;
     for (final p in pecas) {
       maxLen = math.max(maxLen, comp(p));
+      maxWid = math.max(maxWid, larg(p));
     }
     final cols = math.max(1, (math.sqrt(pecas.length)).ceil());
-    final gap = math.max(0.6, maxLen * 0.15);
+    final rows = (pecas.length / cols).ceil();
+    final gap = math.max(0.6, math.max(maxLen, maxWid) * 0.18);
 
-    // Largura da célula = maior comprimento + gap.
+    // Célula dimensionada pela maior peça, com folga para não sobrepor.
     final cellX = maxLen + gap;
-    final cellZ = 2.2;
+    final cellZ = maxWid + gap;
+
+    // Centraliza a grade na origem para o modelo ficar enquadrado.
+    final totalX = cols * cellX;
+    final totalZ = rows * cellZ;
+    final offsetX = -totalX / 2 + cellX / 2;
+    final offsetZ = -totalZ / 2 + cellZ / 2;
 
     for (var i = 0; i < pecas.length; i++) {
       final p = pecas[i];
       final c = comp(p), l = larg(p), a = alt(p);
       final col = i % cols;
       final row = i ~/ cols;
-      final cx = col * cellX;
-      final cz = row * cellZ;
+      final cx = offsetX + col * cellX;
+      final cz = offsetZ + row * cellZ;
       boxes.add(_Box3(
         center: _Vec3(cx, a / 2, cz),
         half: _Vec3(c / 2, a / 2, l / 2),
@@ -121,13 +130,8 @@ class _Obra3DViewerState extends State<Obra3DViewer> {
       ));
     }
 
-    // Raio aproximado para enquadramento.
-    var maxX = 0.0, maxZ = 0.0;
-    for (final b in boxes) {
-      maxX = math.max(maxX, b.center.x + b.half.x);
-      maxZ = math.max(maxZ, b.center.z + b.half.z);
-    }
-    _sceneRadius = math.max(math.max(maxX, maxZ), 1);
+    // Raio aproximado para enquadramento (cobre a grade inteira).
+    _sceneRadius = math.max(math.max(totalX, totalZ) / 2, 1);
     _boxes = boxes;
   }
 

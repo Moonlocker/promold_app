@@ -10,7 +10,7 @@ import '../../../providers/cadastros_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import '../widgets/fornecedor_form_sheet.dart';
 
-/// MÃ³dulo Fornecedores.
+/// Módulo Fornecedores.
 class FornecedoresScreen extends ConsumerStatefulWidget {
   const FornecedoresScreen({super.key});
 
@@ -83,7 +83,7 @@ class _FornecedoresScreenState extends ConsumerState<FornecedoresScreen> {
                   return const EmptyState(
                     icon: Icons.store_outlined,
                     title: 'Nenhum fornecedor',
-                    message: 'Cadastre fornecedores da operaÃ§Ã£o.',
+                    message: 'Cadastre fornecedores da operação.',
                   );
                 }
                 return RefreshIndicator(
@@ -147,7 +147,7 @@ class _FornecedorCard extends ConsumerWidget {
                 if ((fornecedor.cnpjCpf ?? '').isNotEmpty) fornecedor.cnpjCpf,
                 if ((fornecedor.cidade ?? '').isNotEmpty)
                   '${fornecedor.cidade}${(fornecedor.estado ?? '').isNotEmpty ? '/${fornecedor.estado}' : ''}',
-              ].join(' Â· '),
+              ].join(' · '),
               style: const TextStyle(fontSize: 12.5),
             ),
           ],

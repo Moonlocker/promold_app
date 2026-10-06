@@ -16,7 +16,7 @@ import '../widgets/estoque_form_sheet.dart';
 import '../widgets/estoque_visual_editor.dart';
 import '../widgets/vincular_peca_sheet.dart';
 
-/// MÃ³dulo Estoque: cadastro de locais e mapa visual.
+/// Módulo Estoque: cadastro de locais e mapa visual.
 class EstoqueScreen extends ConsumerStatefulWidget {
   const EstoqueScreen({super.key});
 
@@ -94,7 +94,7 @@ class _EstoqueScreenState extends ConsumerState<EstoqueScreen> {
             return const EmptyState(
               icon: Icons.warehouse_outlined,
               title: 'Nenhum estoque cadastrado',
-              message: 'Cadastre os locais de armazenamento da fÃ¡brica.',
+              message: 'Cadastre os locais de armazenamento da fábrica.',
             );
           }
 
@@ -133,7 +133,7 @@ class _EstoqueScreenState extends ConsumerState<EstoqueScreen> {
                         initialValue: _pecaFiltro,
                         isDense: true,
                         decoration: const InputDecoration(
-                            labelText: 'Filtrar por peÃ§a', isDense: true),
+                            labelText: 'Filtrar por peça', isDense: true),
                         items: [
                           const DropdownMenuItem(
                               value: 'all', child: Text('Todas')),
@@ -307,8 +307,8 @@ class _EstoqueCard extends ConsumerWidget {
                       const SizedBox(height: 6),
                       Text(
                         cap != null
-                            ? '$count/$cap peÃ§as (${ocupacao!.round()}%)'
-                            : '$count peÃ§as',
+                            ? '$count/$cap peças (${ocupacao!.round()}%)'
+                            : '$count peças',
                         style: const TextStyle(fontSize: 12.5),
                       ),
                       if (ocupacao != null) ...[
@@ -334,14 +334,14 @@ class _EstoqueCard extends ConsumerWidget {
                   onSelected: (v) => _acao(context, ref, v),
                   itemBuilder: (_) => [
                     const PopupMenuItem(
-                        value: 'vincular', child: Text('Vincular peÃ§a')),
+                        value: 'vincular', child: Text('Vincular peça')),
                     const PopupMenuItem(
                         value: 'compartimentos',
                         child: Text('Compartimentos')),
                     const PopupMenuItem(value: 'qr', child: Text('QR Code')),
                     if (ref.podeEditar('estoque'))
                       const PopupMenuItem(
-                          value: 'imagem', child: Text('Imagem de referÃªncia')),
+                          value: 'imagem', child: Text('Imagem de referência')),
                     if (ref.podeEditar('estoque'))
                       const PopupMenuItem(
                           value: 'duplicar', child: Text('Duplicar')),
@@ -363,7 +363,7 @@ class _EstoqueCard extends ConsumerWidget {
               if (pecas.length > 8)
                 TextButton(
                   onPressed: () => _verTodasPecas(context, ref),
-                  child: Text('Ver todas (${pecas.length} peÃ§as)'),
+                  child: Text('Ver todas (${pecas.length} peças)'),
                 ),
             ],
           ],
@@ -440,7 +440,7 @@ class _EstoqueCard extends ConsumerWidget {
           builder: (context) => AlertDialog(
             title: const Text('Excluir estoque'),
             content: Text(
-                'Excluir "${estoque.nome}"? As peÃ§as serÃ£o desvinculadas.'),
+                'Excluir "${estoque.nome}"? As peças serão desvinculadas.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -502,7 +502,7 @@ class _EstoqueCard extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('${estoque.nome} Â· ${pecas.length} peÃ§as'),
+        title: Text('${estoque.nome} · ${pecas.length} peças'),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView(
@@ -510,7 +510,7 @@ class _EstoqueCard extends ConsumerWidget {
             children: pecas
                 .map((p) => ListTile(
                       dense: true,
-                      title: Text('${p.identificador} Â· ${p.pecaNome}'),
+                      title: Text('${p.identificador} · ${p.pecaNome}'),
                       subtitle: Text(p.obraNome,
                           style: const TextStyle(fontSize: 12)),
                       trailing: IconButton(

@@ -10,7 +10,7 @@ import '../../../providers/cadastros_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import '../widgets/cliente_form_sheet.dart';
 
-/// MÃ³dulo Clientes: cadastro centralizado.
+/// Módulo Clientes: cadastro centralizado.
 class ClientesScreen extends ConsumerStatefulWidget {
   const ClientesScreen({super.key});
 
@@ -63,7 +63,7 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
                   return const EmptyState(
                     icon: Icons.person_outline,
                     title: 'Nenhum cliente',
-                    message: 'Cadastre clientes para vincular Ã s obras.',
+                    message: 'Cadastre clientes para vincular às obras.',
                   );
                 }
                 return RefreshIndicator(
@@ -137,7 +137,7 @@ class _ClienteCard extends ConsumerWidget {
                   if ((cliente.telefone ?? '').isNotEmpty) cliente.telefone,
                   if ((cliente.cidade ?? '').isNotEmpty)
                     '${cliente.cidade}${(cliente.uf ?? '').isNotEmpty ? '/${cliente.uf}' : ''}',
-                ].join(' Â· '),
+                ].join(' · '),
                 style: const TextStyle(fontSize: 12.5),
               ),
           ],

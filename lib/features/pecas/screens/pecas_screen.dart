@@ -12,7 +12,7 @@ import '../../../providers/pecas_catalogo_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import '../widgets/peca_form_sheet.dart';
 
-/// CatÃ¡logo de PeÃ§as: peÃ§as e categorias.
+/// Catálogo de Peças: peças e categorias.
 class PecasScreen extends StatelessWidget {
   const PecasScreen({super.key});
 
@@ -22,10 +22,10 @@ class PecasScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('CatÃ¡logo de PeÃ§as'),
+          title: const Text('Catálogo de Peças'),
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'PeÃ§as'),
+              Tab(text: 'Peças'),
               Tab(text: 'Categorias'),
             ],
           ),
@@ -67,7 +67,7 @@ class _PecasTabState extends ConsumerState<_PecasTab> {
                 if (ok == true) ref.invalidate(pecasCatalogoListProvider);
               },
               icon: const Icon(Icons.add),
-              label: const Text('Nova PeÃ§a'),
+              label: const Text('Nova Peça'),
             )
           : null,
       body: async.when(
@@ -93,7 +93,7 @@ class _PecasTabState extends ConsumerState<_PecasTab> {
                   onChanged: (v) => setState(() => _busca = v),
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search, size: 20),
-                    hintText: 'Buscar peÃ§a...',
+                    hintText: 'Buscar peça...',
                     isDense: true,
                   ),
                 ),
@@ -144,7 +144,7 @@ class _PecasTabState extends ConsumerState<_PecasTab> {
                     padding: EdgeInsets.only(top: 48),
                     child: EmptyState(
                       icon: Icons.extension_outlined,
-                      title: 'Nenhuma peÃ§a encontrada',
+                      title: 'Nenhuma peça encontrada',
                     ),
                   )
                 else
@@ -171,15 +171,15 @@ class _PecaCard extends ConsumerWidget {
   String get _dimensoes {
     switch (peca.tipoCalculo) {
       case 'nao_linear':
-        return '${peca.volumeConcretoPorMetro ?? '-'} mÂ³/m';
+        return '${peca.volumeConcretoPorMetro ?? '-'} m³/m';
       case 'cilindrica':
-        return 'Ã˜ ${peca.diametroPadrao ?? '-'} m';
+        return 'Ø ${peca.diametroPadrao ?? '-'} m';
       default:
         final partes = [
           peca.larguraPadrao,
           peca.alturaPadrao,
           if (peca.comprimentoPadrao != null) peca.comprimentoPadrao,
-        ].where((e) => e != null).join(' Ã— ');
+        ].where((e) => e != null).join(' × ');
         return partes.isEmpty ? '-' : partes;
     }
   }
@@ -226,7 +226,7 @@ class _PecaCard extends ConsumerWidget {
                 peca.categoria?.nome ?? '-',
                 peca.tipoConcretoLabel,
                 _dimensoes,
-              ].join(' Â· '),
+              ].join(' · '),
               style: const TextStyle(fontSize: 12.5),
             ),
           ],
@@ -252,7 +252,7 @@ class _PecaCard extends ConsumerWidget {
                 final ok = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text('Excluir peÃ§a'),
+                    title: const Text('Excluir peça'),
                     content: Text('Excluir "${peca.nome}"?'),
                     actions: [
                       TextButton(
@@ -277,7 +277,7 @@ class _PecaCard extends ConsumerWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                              'NÃ£o foi possÃ­vel excluir: peÃ§a em uso em obras/composiÃ§Ãµes.'),
+                              'Não foi possível excluir: peça em uso em obras/composições.'),
                         ),
                       );
                     }
@@ -393,7 +393,7 @@ class _CategoriasTabState extends ConsumerState<_CategoriasTab> {
             required: true),
         SimpleField(
             key: 'descricao',
-            label: 'DescriÃ§Ã£o',
+            label: 'Descrição',
             initial: categoria?.descricao,
             maxLines: 3),
       ],
@@ -434,8 +434,8 @@ class _CategoriaPecaCard extends ConsumerWidget {
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
           categoria.descricao?.isNotEmpty == true
-              ? '${categoria.descricao} Â· $count peÃ§as'
-              : '$count peÃ§as',
+              ? '${categoria.descricao} · $count peças'
+              : '$count peças',
         ),
         leading: Container(
           padding: const EdgeInsets.all(8),
@@ -453,7 +453,7 @@ class _CategoriaPecaCard extends ConsumerWidget {
               if (count > 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text('Categoria possui peÃ§as vinculadas')),
+                      content: Text('Categoria possui peças vinculadas')),
                 );
                 return;
               }

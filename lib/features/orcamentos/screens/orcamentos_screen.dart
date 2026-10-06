@@ -11,7 +11,7 @@ import '../../../providers/sistema_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import 'orcamento_detalhe_screen.dart';
 
-/// MÃ³dulo OrÃ§amentos: listagem e cadastro.
+/// Módulo Orçamentos: listagem e cadastro.
 class OrcamentosScreen extends ConsumerStatefulWidget {
   const OrcamentosScreen({super.key});
 
@@ -26,7 +26,7 @@ class _OrcamentosScreenState extends ConsumerState<OrcamentosScreen> {
   Widget build(BuildContext context) {
     final async = ref.watch(orcamentosListProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('OrÃ§amentos')),
+      appBar: AppBar(title: const Text('Orçamentos')),
       floatingActionButton: ref.podeCriar('orcamentos')
           ? FloatingActionButton.extended(
               onPressed: () => _novo(),
@@ -60,7 +60,7 @@ class _OrcamentosScreenState extends ConsumerState<OrcamentosScreen> {
                     padding: EdgeInsets.only(top: 48),
                     child: EmptyState(
                       icon: Icons.request_quote_outlined,
-                      title: 'Nenhum orÃ§amento',
+                      title: 'Nenhum orçamento',
                     ),
                   )
                 else
@@ -79,15 +79,15 @@ class _OrcamentosScreenState extends ConsumerState<OrcamentosScreen> {
   Future<void> _novo() async {
     final result = await showSimpleFormSheet(
       context,
-      title: 'Novo OrÃ§amento',
+      title: 'Novo Orçamento',
       submitLabel: 'Cadastrar',
       fields: const [
         SimpleField(key: 'cliente', label: 'Cliente *', required: true),
-        SimpleField(key: 'endereco', label: 'EndereÃ§o'),
-        SimpleField(key: 'contato_responsavel', label: 'Contato responsÃ¡vel'),
+        SimpleField(key: 'endereco', label: 'Endereço'),
+        SimpleField(key: 'contato_responsavel', label: 'Contato responsável'),
         SimpleField(key: 'telefone_contato', label: 'Telefone do contato'),
         SimpleField(key: 'prazo_estimado', label: 'Prazo estimado'),
-        SimpleField(key: 'observacoes', label: 'ObservaÃ§Ãµes', maxLines: 3),
+        SimpleField(key: 'observacoes', label: 'Observações', maxLines: 3),
       ],
     );
     if (result == null) return;
@@ -136,11 +136,11 @@ class _OrcamentoCard extends ConsumerWidget {
           );
           onChanged();
         },
-        title: Text('NÂº ${orcamento.numeroOrcamento} Â· ${orcamento.cliente}',
+        title: Text('Nº ${orcamento.numeroOrcamento} · ${orcamento.cliente}',
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
           '${orcamento.status}'
-          '${orcamento.dataCriacao != null ? ' Â· ${Formatters.dataBr(DateTime.tryParse(orcamento.dataCriacao!))}' : ''}',
+          '${orcamento.dataCriacao != null ? ' · ${Formatters.dataBr(DateTime.tryParse(orcamento.dataCriacao!))}' : ''}',
           style: const TextStyle(fontSize: 12.5),
         ),
         trailing: Text(

@@ -40,7 +40,7 @@ class _QualidadeEnsaiosScreenState
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            tooltip: 'PadrÃµes',
+            tooltip: 'Padrões',
             onPressed: () => showQcPadroesSheet(context),
           ),
         ],
@@ -88,7 +88,7 @@ class _QualidadeEnsaiosScreenState
                   onChanged: (v) => setState(() => _busca = v),
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search, size: 20),
-                    hintText: 'Buscar por cÃ³digo ou fornecedor...',
+                    hintText: 'Buscar por código ou fornecedor...',
                     isDense: true,
                   ),
                 ),
@@ -170,9 +170,9 @@ class _LoteCard extends ConsumerWidget {
           ],
         ),
         subtitle: Text(
-          '${Formatters.dataBr(DateTime.tryParse(lote.dataConcretagem))} Â· '
-          'FCK ${lote.fckMpa.toStringAsFixed(1)} MPa Â· $nCps CPs Â· $nEnsaios ensaios'
-          '${(lote.fornecedor ?? '').isNotEmpty ? ' Â· ${lote.fornecedor}' : ''}',
+          '${Formatters.dataBr(DateTime.tryParse(lote.dataConcretagem))} · '
+          'FCK ${lote.fckMpa.toStringAsFixed(1)} MPa · $nCps CPs · $nEnsaios ensaios'
+          '${(lote.fornecedor ?? '').isNotEmpty ? ' · ${lote.fornecedor}' : ''}',
           style: const TextStyle(fontSize: 12),
         ),
         trailing: (ref.podeEditar('qualidade-ensaios') ||
@@ -189,7 +189,7 @@ class _LoteCard extends ConsumerWidget {
                   builder: (context) => AlertDialog(
                     title: Text('Excluir lote ${lote.codigo}?'),
                     content: const Text(
-                        'Todos os corpos de prova e ensaios vinculados serÃ£o removidos.'),
+                        'Todos os corpos de prova e ensaios vinculados serão removidos.'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),

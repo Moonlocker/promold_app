@@ -294,7 +294,7 @@ class _ContaCard extends ConsumerWidget {
                         conta.cliente!,
                       ?catNome,
                       'Venc. ${Formatters.dataBr(venc)}',
-                    ].join(' Â· '),
+                    ].join(' · '),
                     style: const TextStyle(
                         fontSize: 12, color: AppColors.mutedForeground),
                   ),
@@ -369,14 +369,14 @@ class _ContaCard extends ConsumerWidget {
                               conta.liquidado > 0)
                             const PopupMenuItem(
                                 value: 'editar_liquidacao',
-                                child: Text('Editar liquidaÃ§Ã£o')),
+                                child: Text('Editar liquidação')),
                           if (ref.podeEditar(conta.isPagar
                                   ? 'financeiro-contas-pagar'
                                   : 'financeiro-contas-receber') &&
                               conta.liquidado > 0)
                             const PopupMenuItem(
                                 value: 'reverter',
-                                child: Text('Desmarcar liquidaÃ§Ã£o')),
+                                child: Text('Desmarcar liquidação')),
                           if (ref.podeCriar(conta.isPagar
                                   ? 'financeiro-contas-pagar'
                                   : 'financeiro-contas-receber') &&
@@ -384,7 +384,7 @@ class _ContaCard extends ConsumerWidget {
                               conta.statusEfetivo != 'recebido' &&
                               conta.statusEfetivo != 'cancelado')
                             const PopupMenuItem(
-                                value: 'cobranca', child: Text('Gerar cobranÃ§a')),
+                                value: 'cobranca', child: Text('Gerar cobrança')),
                           if (ref.podeExcluir(conta.isPagar
                               ? 'financeiro-contas-pagar'
                               : 'financeiro-contas-receber'))
@@ -421,9 +421,9 @@ class _ContaCard extends ConsumerWidget {
         final ok = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Desmarcar liquidaÃ§Ã£o'),
+            title: const Text('Desmarcar liquidação'),
             content: const Text(
-                'Reverter esta conta para Pendente? Os valores liquidados serÃ£o zerados.'),
+                'Reverter esta conta para Pendente? Os valores liquidados serão zerados.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),

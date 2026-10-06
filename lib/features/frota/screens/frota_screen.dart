@@ -10,7 +10,7 @@ import '../../../models/veiculo.dart';
 import '../../../providers/sistema_providers.dart';
 import '../../../providers/supabase_providers.dart';
 
-/// MÃ³dulo Frota: cadastro de veÃ­culos.
+/// Módulo Frota: cadastro de veículos.
 class FrotaScreen extends ConsumerStatefulWidget {
   const FrotaScreen({super.key});
 
@@ -30,7 +30,7 @@ class _FrotaScreenState extends ConsumerState<FrotaScreen> {
           ? FloatingActionButton.extended(
               onPressed: () => _abrirForm(),
               icon: const Icon(Icons.add),
-              label: const Text('Novo VeÃ­culo'),
+              label: const Text('Novo Veículo'),
             )
           : null,
       body: async.when(
@@ -61,7 +61,7 @@ class _FrotaScreenState extends ConsumerState<FrotaScreen> {
                     padding: EdgeInsets.only(top: 48),
                     child: EmptyState(
                       icon: Icons.local_shipping_outlined,
-                      title: 'Nenhum veÃ­culo cadastrado',
+                      title: 'Nenhum veículo cadastrado',
                     ),
                   )
                 else
@@ -80,7 +80,7 @@ class _FrotaScreenState extends ConsumerState<FrotaScreen> {
   Future<void> _abrirForm({Veiculo? veiculo}) async {
     final result = await showSimpleFormSheet(
       context,
-      title: veiculo == null ? 'Novo VeÃ­culo' : 'Editar VeÃ­culo',
+      title: veiculo == null ? 'Novo Veículo' : 'Editar Veículo',
       submitLabel: veiculo == null ? 'Cadastrar' : 'Salvar',
       fields: [
         SimpleField(
@@ -99,7 +99,7 @@ class _FrotaScreenState extends ConsumerState<FrotaScreen> {
           label: 'Tipo',
           initial: veiculo?.tipo ?? 'caminhao',
           options: const [
-            SimpleOption('caminhao', 'CaminhÃ£o'),
+            SimpleOption('caminhao', 'Caminhão'),
             SimpleOption('carreta', 'Carreta'),
             SimpleOption('munck', 'Munck'),
             SimpleOption('carro', 'Carro'),
@@ -111,7 +111,7 @@ class _FrotaScreenState extends ConsumerState<FrotaScreen> {
           label: 'Propriedade',
           initial: veiculo?.propriedade ?? 'propria',
           options: const [
-            SimpleOption('propria', 'PrÃ³pria'),
+            SimpleOption('propria', 'Própria'),
             SimpleOption('terceirizada', 'Terceirizada'),
             SimpleOption('agregada', 'Agregada'),
           ],
@@ -167,11 +167,11 @@ class _VeiculoCard extends ConsumerWidget {
           child: const Icon(Icons.local_shipping_outlined,
               size: 18, color: AppColors.primary),
         ),
-        title: Text('${veiculo.placa} Â· ${veiculo.modelo}',
+        title: Text('${veiculo.placa} · ${veiculo.modelo}',
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
-          '${veiculo.tipo ?? '-'} Â· ${veiculo.propriedade}'
-          '${veiculo.capacidade != null ? ' Â· ${veiculo.capacidade}t' : ''}',
+          '${veiculo.tipo ?? '-'} · ${veiculo.propriedade}'
+          '${veiculo.capacidade != null ? ' · ${veiculo.capacidade}t' : ''}',
           style: const TextStyle(fontSize: 12.5),
         ),
         trailing: (ref.podeEditar('frota') || ref.podeExcluir('frota'))
@@ -188,7 +188,7 @@ class _VeiculoCard extends ConsumerWidget {
                 final ok = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text('Excluir veÃ­culo'),
+                    title: const Text('Excluir veículo'),
                     content: Text('Excluir ${veiculo.placa}?'),
                     actions: [
                       TextButton(
@@ -233,7 +233,7 @@ class _VeiculoCard extends ConsumerWidget {
   Future<void> _editar(BuildContext context, WidgetRef ref) async {
     final result = await showSimpleFormSheet(
       context,
-      title: 'Editar VeÃ­culo',
+      title: 'Editar Veículo',
       fields: [
         SimpleField(key: 'placa', label: 'Placa *', initial: veiculo.placa, required: true),
         SimpleField(key: 'modelo', label: 'Modelo *', initial: veiculo.modelo, required: true),
@@ -242,7 +242,7 @@ class _VeiculoCard extends ConsumerWidget {
           label: 'Tipo',
           initial: veiculo.tipo ?? 'caminhao',
           options: const [
-            SimpleOption('caminhao', 'CaminhÃ£o'),
+            SimpleOption('caminhao', 'Caminhão'),
             SimpleOption('carreta', 'Carreta'),
             SimpleOption('munck', 'Munck'),
             SimpleOption('carro', 'Carro'),
@@ -254,7 +254,7 @@ class _VeiculoCard extends ConsumerWidget {
           label: 'Propriedade',
           initial: veiculo.propriedade,
           options: const [
-            SimpleOption('propria', 'PrÃ³pria'),
+            SimpleOption('propria', 'Própria'),
             SimpleOption('terceirizada', 'Terceirizada'),
             SimpleOption('agregada', 'Agregada'),
           ],

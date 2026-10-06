@@ -27,6 +27,7 @@ class Obra3DTab extends ConsumerStatefulWidget {
 
 class _Obra3DTabState extends ConsumerState<Obra3DTab> {
   String _modo = '3d'; // '3d' | 'ifc'
+  bool _modoInicial = false;
   ObraPeca? _selecionada;
   String? _ifcSelecionadoId;
   bool _enviando = false;
@@ -43,6 +44,12 @@ class _Obra3DTabState extends ConsumerState<Obra3DTab> {
     final temIfc = arquivos.isNotEmpty;
 
     if (pecasAsync.isLoading) return const LoadingView();
+
+    // Abre no modelo IFC (real) quando a obra possui um arquivo.
+    if (!_modoInicial && arquivosAsync.hasValue) {
+      _modoInicial = true;
+      if (temIfc) _modo = 'ifc';
+    }
 
     if (_modo == 'ifc' && !temIfc) _modo = '3d';
 

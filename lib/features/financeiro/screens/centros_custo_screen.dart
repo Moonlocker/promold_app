@@ -10,7 +10,7 @@ import '../../../models/centro_custo.dart';
 import '../../../providers/cadastros_providers.dart';
 import '../../../providers/supabase_providers.dart';
 
-/// MÃ³dulo Centros de Custo (financeiro).
+/// Módulo Centros de Custo (financeiro).
 class CentrosCustoScreen extends ConsumerStatefulWidget {
   const CentrosCustoScreen({super.key});
 
@@ -101,7 +101,7 @@ class _CentrosCustoScreenState extends ConsumerState<CentrosCustoScreen> {
         ),
         SimpleField(
           key: 'descricao',
-          label: 'DescriÃ§Ã£o',
+          label: 'Descrição',
           initial: centro?.descricao,
           maxLines: 3,
         ),
@@ -198,7 +198,7 @@ class _CentroCard extends ConsumerWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content:
-                  Text('Em uso em $uso lanÃ§amento(s). NÃ£o Ã© possÃ­vel excluir.'),
+                  Text('Em uso em $uso lançamento(s). Não é possível excluir.'),
             ),
           );
           return;
@@ -219,7 +219,7 @@ class _CentroCard extends ConsumerWidget {
         SimpleField(key: 'nome', label: 'Nome *', initial: centro.nome, required: true),
         SimpleField(
           key: 'descricao',
-          label: 'DescriÃ§Ã£o',
+          label: 'Descrição',
           initial: centro.descricao,
           maxLines: 3,
         ),

@@ -25,6 +25,7 @@ import '../../features/frota/screens/frota_screen.dart';
 import '../../features/leitores/leitor_configs.dart';
 import '../../features/leitores/leitor_consulta_screen.dart';
 import '../../features/leitores/leitor_estoque_screen.dart';
+import '../../features/leitores/leitores_hub_screen.dart';
 import '../../features/leitores/registrar_leitor_screen.dart';
 import '../../features/mais/screens/mais_screen.dart';
 import '../../features/minha_fatura/screens/minha_fatura_screen.dart';
@@ -56,6 +57,7 @@ const Set<String> _rotasImplementadas = {
   AppRoutes.painel,
   AppRoutes.planejamento,
   AppRoutes.estoque,
+  AppRoutes.leitores,
   AppRoutes.leitorConsulta,
   AppRoutes.leitorArmada,
   AppRoutes.leitorConcretada,
@@ -256,6 +258,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const PecasScreen(),
       ),
       GoRoute(
+        path: AppRoutes.estoque,
+        builder: (_, _) => const EstoqueScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.clientes,
         builder: (_, _) => const ClientesScreen(),
       ),
@@ -382,8 +388,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.estoque,
-                builder: (_, _) => const EstoqueScreen(),
+                path: AppRoutes.leitores,
+                builder: (_, _) => const LeitoresHubScreen(),
               ),
             ],
           ),
