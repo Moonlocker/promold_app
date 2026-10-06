@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/logic/status_config.dart';
+import '../../../core/offline/offline_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -11,6 +12,7 @@ import '../../../models/obra_ifc.dart';
 import '../../../models/obra_peca.dart';
 import '../../../providers/obra_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../widgets/obra_3d_embed_view.dart';
 import '../widgets/obra_3d_viewer.dart';
 import '../widgets/obra_ifc_viewer.dart';
 import '../widgets/obra_peca_edit_sheet.dart';
@@ -26,8 +28,7 @@ class Obra3DTab extends ConsumerStatefulWidget {
 }
 
 class _Obra3DTabState extends ConsumerState<Obra3DTab> {
-  String _modo = '3d'; // '3d' | 'ifc'
-  bool _modoInicial = false;
+  String _modo = 'editor'; // 'editor' | 'ifc'
   ObraPeca? _selecionada;
   String? _ifcSelecionadoId;
   bool _enviando = false;
@@ -38,6 +39,7 @@ class _Obra3DTabState extends ConsumerState<Obra3DTab> {
     final statusConfig =
         ref.watch(statusConfigProvider).value ?? StatusConfig.defaults;
     final arquivosAsync = ref.watch(obraIfcArquivosProvider(widget.obraId));
+    final online = ref.watch(onlineProvider).value ?? true;
 
     final pecas = pecasAsync.value ?? const <ObraPeca>[];
     final arquivos = arquivosAsync.value ?? const <ObraIfcArquivo>[];
@@ -45,13 +47,7 @@ class _Obra3DTabState extends ConsumerState<Obra3DTab> {
 
     if (pecasAsync.isLoading) return const LoadingView();
 
-    // Abre no modelo IFC (real) quando a obra possui um arquivo.
-    if (!_modoInicial && arquivosAsync.hasValue) {
-      _modoInicial = true;
-      if (temIfc) _modo = 'ifc';
-    }
-
-    if (_modo == 'ifc' && !temIfc) _modo = '3d';
+    if (_modo == 'ifc' && !temIfc) _modo = 'editor';
 
     return Column(
       children: [
@@ -63,7 +59,7 @@ class _Obra3DTabState extends ConsumerState<Obra3DTab> {
                 child: SegmentedButton<String>(
                   segments: const [
                     ButtonSegment(
-                      value: '3d',
+                      value: 'editor',
                       icon: Icon(Icons.view_in_ar_outlined, size: 18),
                       label: Text('3D'),
                     ),
@@ -82,11 +78,57 @@ class _Obra3DTabState extends ConsumerState<Obra3DTab> {
           ),
         ),
         Expanded(
-          child: _modo == '3d'
-              ? _buildNativo(pecas, statusConfig)
+          child: _modo == 'editor'
+              ? _buildEditor(pecas, statusConfig, online)
               : _buildIfc(arquivos, pecas, statusConfig),
         ),
       ],
+    );
+  }
+
+  /// Editor 3D completo do sistema web (via WebView). Offline, cai para o
+  /// visualizador nativo simplificado.
+  Widget _buildEditor(
+    List<ObraPeca> pecas,
+    StatusConfig statusConfig,
+    bool online,
+  ) {
+    if (!online) {
+      return Column(
+        children: [
+          Container(
+            width: double.infinity,
+            color: AppColors.warning.withValues(alpha: 0.12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: const Row(
+              children: [
+                Icon(Icons.wifi_off, size: 16, color: AppColors.warning),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Offline — visualização simplificada. Conecte para o editor completo.',
+                    style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.warning),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: _buildNativo(pecas, statusConfig)),
+        ],
+      );
+    }
+    return Obra3DEmbedView(
+      key: ValueKey('obra-3d-embed-${widget.obraId}'),
+      obraId: widget.obraId,
+      onError: (msg) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('Editor 3D: $msg')));
+        }
+      },
     );
   }
 
