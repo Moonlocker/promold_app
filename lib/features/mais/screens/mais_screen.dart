@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../providers/auth_providers.dart';
+import '../../../providers/notificacoes_providers.dart';
 import '../../../providers/supabase_providers.dart';
 
 /// Aba "Mais": perfil do usuário e acesso a todos os módulos liberados para a
@@ -55,6 +56,7 @@ class MaisScreen extends ConsumerWidget {
                 role: user.role,
               ),
               const _SyncStatusCard(),
+              const _NotificacoesTile(),
               if (modulos.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(24),
@@ -237,6 +239,55 @@ class _SyncStatusCard extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificacoesTile extends ConsumerWidget {
+  const _NotificacoesTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final naoLidas = ref.watch(notificacoesNaoLidasProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Card(
+        child: ListTile(
+          leading: const Icon(Icons.notifications_outlined,
+              color: AppColors.primary),
+          title: const Text('Notificações'),
+          subtitle: Text(
+            naoLidas > 0 ? '$naoLidas não lida(s)' : 'Tudo em dia',
+            style: const TextStyle(fontSize: 12.5),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (naoLidas > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.destructive,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$naoLidas',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right,
+                  size: 20, color: AppColors.mutedForeground),
+            ],
+          ),
+          onTap: () => context.push(AppRoutes.notificacoes),
         ),
       ),
     );

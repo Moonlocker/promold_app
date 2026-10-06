@@ -26,6 +26,7 @@ class AppRoutes {
   static const configuracoes = '/configuracoes';
   static const minhaFatura = '/minha-fatura';
   static const suporte = '/suporte';
+  static const notificacoes = '/notificacoes';
   static const superAdmin = '/super-admin';
 
   static const leitorConsulta = '/leitor-consulta';

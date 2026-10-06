@@ -12,6 +12,7 @@ import '../../../core/widgets/stat_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/equipe_providers.dart';
+import '../../../providers/notificacoes_providers.dart';
 import '../../../providers/obra_providers.dart';
 
 /// Dashboard inicial, espelhando as métricas de `src/pages/Dashboard.tsx`.
@@ -51,6 +52,22 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ],
         ),
+        actions: [
+          Consumer(
+            builder: (context, ref, _) {
+              final naoLidas = ref.watch(notificacoesNaoLidasProvider);
+              return IconButton(
+                tooltip: 'Notificações',
+                onPressed: () => context.push(AppRoutes.notificacoes),
+                icon: Badge(
+                  isLabelVisible: naoLidas > 0,
+                  label: Text('$naoLidas'),
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: metricsAsync.when(
         loading: () => const LoadingView(message: 'Carregando indicadores...'),

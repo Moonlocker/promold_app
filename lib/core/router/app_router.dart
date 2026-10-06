@@ -29,6 +29,7 @@ import '../../features/leitores/leitores_hub_screen.dart';
 import '../../features/leitores/registrar_leitor_screen.dart';
 import '../../features/mais/screens/mais_screen.dart';
 import '../../features/minha_fatura/screens/minha_fatura_screen.dart';
+import '../../features/notificacoes/notificacoes_screen.dart';
 import '../../features/obras/screens/obra_detalhe_screen.dart';
 import '../../features/obras/screens/obras_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
@@ -87,6 +88,7 @@ const Set<String> _rotasImplementadas = {
   AppRoutes.minhaFatura,
   AppRoutes.visaoGeral,
   AppRoutes.orcamentos,
+  AppRoutes.notificacoes,
 };
 
 /// Notifica o GoRouter sempre que a sessão ou o usuário mudam.
@@ -336,6 +338,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.suporte,
         builder: (_, _) => const SuporteScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.notificacoes,
+        builder: (_, _) => const NotificacoesScreen(),
       ),
       GoRoute(
         path: AppRoutes.configuracoes,
