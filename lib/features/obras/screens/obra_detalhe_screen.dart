@@ -150,6 +150,7 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
           ),
           body: TabBarView(
             controller: _tabs,
+            physics: const NeverScrollableScrollPhysics(),
             children: [
               ObraVisaoGeralTab(
                 obra: obra,

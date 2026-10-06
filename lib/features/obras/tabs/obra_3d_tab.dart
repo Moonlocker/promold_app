@@ -123,6 +123,7 @@ class _Obra3DTabState extends ConsumerState<Obra3DTab> {
     return Obra3DEmbedView(
       key: ValueKey('obra-3d-embed-${widget.obraId}'),
       obraId: widget.obraId,
+      onFallback: () => setState(() => _modo = 'ifc'),
       onError: (msg) {
         if (mounted) {
           ScaffoldMessenger.of(context)

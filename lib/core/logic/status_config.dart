@@ -10,7 +10,6 @@ const List<String> statusOrdem = [
   'armada',
   'concretada',
   'em_estoque',
-  'carregada',
   'montada',
 ];
 

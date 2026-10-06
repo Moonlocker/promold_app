@@ -29,6 +29,7 @@ class _ObraPecasTabState extends ConsumerState<ObraPecasTab> {
   String _categoria = 'all';
   bool _ocultarConcluidas = false;
   final Set<String> _selecionadas = {};
+  final Set<String> _fechadas = {};
 
   @override
   void dispose() {
@@ -136,6 +137,35 @@ class _ObraPecasTabState extends ConsumerState<ObraPecasTab> {
                                 .read(obraPecasFilterProvider.notifier)
                                 .set(null),
                           ),
+                        TextButton.icon(
+                          onPressed: () {
+                            final cats = filtradas
+                                .map((p) =>
+                                    p.pecaCatalogo?.categoria?.nome ??
+                                    'Sem categoria')
+                                .toSet();
+                            setState(() {
+                              if (_fechadas.isEmpty) {
+                                _fechadas.addAll(cats);
+                              } else {
+                                _fechadas.clear();
+                              }
+                            });
+                          },
+                          icon: Icon(
+                            _fechadas.isEmpty
+                                ? Icons.unfold_less
+                                : Icons.unfold_more,
+                            size: 16,
+                          ),
+                          label: Text(
+                            _fechadas.isEmpty ? 'Recolher' : 'Expandir',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -183,52 +213,71 @@ class _ObraPecasTabState extends ConsumerState<ObraPecasTab> {
       final somaPeso = lista.fold<double>(
           0, (acc, p) => acc + statusCfg.weightOf(p.status));
       final pct = lista.isEmpty ? 0 : (somaPeso / lista.length).round();
+      final aberta = !_fechadas.contains(cat);
 
       widgets.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 6),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  cat.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                    color: AppColors.mutedForeground,
+        InkWell(
+          onTap: () => setState(() {
+            if (aberta) {
+              _fechadas.add(cat);
+            } else {
+              _fechadas.remove(cat);
+            }
+          }),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+            child: Row(
+              children: [
+                Icon(
+                  aberta ? Icons.expand_more : Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.mutedForeground,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    cat.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                      color: AppColors.mutedForeground,
+                    ),
                   ),
                 ),
-              ),
-              Text('${lista.length} · $pct%',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.mutedForeground)),
-            ],
+                Text('${lista.length} · $pct%',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.mutedForeground)),
+              ],
+            ),
           ),
         ),
       );
 
-      for (final p in lista) {
-        widgets.add(
-          _PecaCard(
-            peca: p,
-            statusCfg: statusCfg,
-            selecionada: _selecionadas.contains(p.id),
-            onToggleSelecao: () => setState(() {
-              if (!_selecionadas.add(p.id)) _selecionadas.remove(p.id);
-            }),
-            onEditar: () => showPecaEditSheet(
-              context,
-              ref,
+      if (aberta) {
+        for (final p in lista) {
+          widgets.add(
+            _PecaCard(
               peca: p,
-              todas: todas,
+              statusCfg: statusCfg,
+              selecionada: _selecionadas.contains(p.id),
+              onToggleSelecao: () => setState(() {
+                if (!_selecionadas.add(p.id)) _selecionadas.remove(p.id);
+              }),
+              onEditar: () => showPecaEditSheet(
+                context,
+                ref,
+                peca: p,
+                todas: todas,
+              ),
+              onAlterarStatus: (novo) => _alterarStatus(p, novo),
+              onExcluir: () => _excluir(p),
+              onEtiqueta: () => _imprimirEtiqueta(p),
             ),
-            onAlterarStatus: (novo) => _alterarStatus(p, novo),
-            onExcluir: () => _excluir(p),
-            onEtiqueta: () => _imprimirEtiqueta(p),
-          ),
-        );
-        widgets.add(const SizedBox(height: 10));
+          );
+          widgets.add(const SizedBox(height: 10));
+        }
       }
     }
     return widgets;
@@ -321,12 +370,14 @@ class _ObraPecasTabState extends ConsumerState<ObraPecasTab> {
                 icon: const Icon(Icons.close, color: Colors.white),
                 onPressed: () => setState(() => _selecionadas.clear()),
               ),
-              Text(
-                '${_selecionadas.length} selecionada(s)',
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w600),
+              Expanded(
+                child: Text(
+                  '${_selecionadas.length} selecionada(s)',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600),
+                ),
               ),
-              const Spacer(),
               IconButton(
                 tooltip: 'Alterar status',
                 icon: const Icon(Icons.flag_outlined, color: Colors.white),
@@ -411,55 +462,110 @@ class _ObraPecasTabState extends ConsumerState<ObraPecasTab> {
       'data_armacao': 'Data armação',
       'data_concretagem': 'Data concretagem',
       'data_estoque': 'Data estoque',
-      'data_carregamento': 'Data carregamento',
       'data_montagem': 'Data montagem',
     };
+    final selecionadas = _pecasSelecionadas;
     var campo = 'comprimento';
     final valor = TextEditingController();
 
-    final confirmar = await showDialog<bool>(
+    final confirmar = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialog) {
+        builder: (context, setSheet) {
           final isData = campo.startsWith('data_');
-          return AlertDialog(
-            title: const Text('Editar em massa'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: campo,
-                  decoration: const InputDecoration(labelText: 'Campo'),
-                  items: campos.entries
-                      .map((e) => DropdownMenuItem(
-                            value: e.key,
-                            child: Text(e.value),
-                          ))
-                      .toList(),
-                  onChanged: (v) => setDialog(() => campo = v ?? 'comprimento'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: valor,
-                  keyboardType: isData
-                      ? TextInputType.datetime
-                      : const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: isData ? 'Valor (AAAA-MM-DD)' : 'Valor',
+          final bottom = MediaQuery.of(context).viewInsets.bottom;
+          final safeBottom = MediaQuery.of(context).padding.bottom;
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom + safeBottom),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('Editar em massa',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w700)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context, false),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  Text('${selecionadas.length} peça(s) selecionada(s)',
+                      style: const TextStyle(
+                          fontSize: 12.5, color: AppColors.mutedForeground)),
+                  const SizedBox(height: 12),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 150),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.muted,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: selecionadas
+                            .map((p) => Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2),
+                                  child: Text(
+                                    '• ${p.identificador.isEmpty ? p.nomePeca : p.identificador}',
+                                    style: const TextStyle(fontSize: 12.5),
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    initialValue: campo,
+                    isExpanded: true,
+                    decoration:
+                        const InputDecoration(labelText: 'Campo a alterar'),
+                    items: campos.entries
+                        .map((e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text(e.value),
+                            ))
+                        .toList(),
+                    onChanged: (v) =>
+                        setSheet(() => campo = v ?? 'comprimento'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: valor,
+                    keyboardType: isData
+                        ? TextInputType.datetime
+                        : const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText:
+                          isData ? 'Novo valor (AAAA-MM-DD)' : 'Novo valor',
+                      hintText: campo == 'observacoes'
+                          ? 'Texto para as observações'
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text('Aplicar a ${selecionadas.length} peça(s)'),
+                  ),
+                ],
+              ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Aplicar'),
-              ),
-            ],
           );
         },
       ),

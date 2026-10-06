@@ -319,10 +319,11 @@ class _PecaEditSheetState extends ConsumerState<_PecaEditSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
     final p = widget.peca;
     final calc = calcularPeca(p);
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom + safeBottom),
       child: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -439,7 +440,6 @@ class _PecaEditSheetState extends ConsumerState<_PecaEditSheet> {
               _dateTile('Armação', _dataArmacao, 'armacao'),
               _dateTile('Concretagem', _dataConcretagem, 'concretagem'),
               _dateTile('Estoque', _dataEstoque, 'estoque'),
-              _dateTile('Carregamento', _dataCarregamento, 'carregamento'),
               _dateTile('Montagem', _dataMontagem, 'montagem'),
               const SizedBox(height: 12),
               TextFormField(
