@@ -359,19 +359,86 @@ class _ItensDia extends ConsumerWidget {
       grupos.putIfAbsent(item.obraId, () => []).add(item);
     }
 
+    final tipo = ref.watch(planejamentoTipoProvider);
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         for (final entry in grupos.entries) ...[
           _GrupoObra(
             itens: entry.value,
+            mostrarProduzir: tipo == 'producao',
             onTap: (item) => _editar(context, ref, item),
             onRemover: (item) => _remover(context, ref, item),
+            onMarcarProduzido: () =>
+                _marcarProduzido(context, ref, entry.value),
           ),
           const SizedBox(height: 12),
         ],
       ],
     );
+  }
+
+  Future<void> _marcarProduzido(
+    BuildContext context,
+    WidgetRef ref,
+    List<PlanejamentoItem> itens,
+  ) async {
+    final pendentes = itens
+        .where((i) => i.obraPecaId != null && !i.concluido)
+        .toList();
+    if (pendentes.isEmpty) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Marcar como produzido'),
+        content: Text(
+          'Marcar ${pendentes.length} peça(s) de '
+          '${pendentes.first.obraNome} como produzida(s)? '
+          'O status será "Em Estoque" e a data de concretagem será '
+          'preenchida (quando ainda não houver).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Produzir'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+
+    final hoje = DateTime.now().toIso8601String().split('T').first;
+    final repo = ref.read(obrasRepositoryProvider);
+    try {
+      final pecas = await repo.listPecas(pendentes.first.obraId);
+      final porId = {for (final p in pecas) p.id: p};
+      for (final i in pendentes) {
+        final p = porId[i.obraPecaId];
+        final update = <String, dynamic>{'status': 'em_estoque'};
+        if (p?.dataConcretagem == null) update['data_concretagem'] = hoje;
+        await repo.updatePeca(i.obraPecaId!, update);
+      }
+      ref.invalidate(planejamentoDadosProvider);
+      ref.invalidate(todasPecasResumoProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('${pendentes.length} peça(s) marcada(s) como '
+                  'produzida(s)')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro: $e')));
+      }
+    }
   }
 
   Future<void> _editar(
@@ -443,11 +510,15 @@ class _GrupoObra extends StatelessWidget {
     required this.itens,
     required this.onTap,
     required this.onRemover,
+    required this.mostrarProduzir,
+    required this.onMarcarProduzido,
   });
 
   final List<PlanejamentoItem> itens;
   final ValueChanged<PlanejamentoItem> onTap;
   final ValueChanged<PlanejamentoItem> onRemover;
+  final bool mostrarProduzir;
+  final VoidCallback onMarcarProduzido;
 
   @override
   Widget build(BuildContext context) {
@@ -485,6 +556,16 @@ class _GrupoObra extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (mostrarProduzir && concluidos < itens.length)
+                  TextButton.icon(
+                    onPressed: onMarcarProduzido,
+                    icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                    label: const Text('Produzir',
+                        style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
                 Text(
                   '$concluidos/${itens.length}',
                   style: TextStyle(
