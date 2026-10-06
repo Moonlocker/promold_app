@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/offline_banner.dart';
 import '../../../providers/auth_providers.dart';
 
 /// Casca autenticada do aplicativo: mantém a barra de navegação inferior e o
@@ -46,7 +47,12 @@ class AppShell extends ConsumerWidget {
     ref.watch(appUserProvider);
 
     return Scaffold(
-      body: navigationShell,
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(child: navigationShell),
+        ],
+      ),
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: AppColors.border)),

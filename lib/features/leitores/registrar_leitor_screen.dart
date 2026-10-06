@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/offline/offline_providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/qr_scanner_view.dart';
 import '../../providers/obra_providers.dart';
 import '../../providers/supabase_providers.dart';
+import '../../services/leitor_service.dart';
 import '../../services/local_store.dart';
 import 'leitor_configs.dart';
 
@@ -14,6 +16,9 @@ import 'leitor_configs.dart';
 ///
 /// Fluxo idêntico ao webapp: um QR = uma peça; bloqueia se já estiver no
 /// status-alvo; preenche a data correspondente apenas se estiver vazia.
+///
+/// Funciona offline: a leitura entra numa fila local e é sincronizada
+/// automaticamente quando a conexão volta.
 class RegistrarLeitorScreen extends ConsumerStatefulWidget {
   const RegistrarLeitorScreen({super.key, required this.config});
 
@@ -27,6 +32,8 @@ class RegistrarLeitorScreen extends ConsumerStatefulWidget {
 class _RegistrarLeitorScreenState
     extends ConsumerState<RegistrarLeitorScreen> {
   bool _processando = false;
+  bool _sincronizando = false;
+  int _pending = 0;
   String? _erro;
   String? _sucesso;
   String? _flash;
@@ -38,6 +45,7 @@ class _RegistrarLeitorScreenState
   void initState() {
     super.initState();
     _carregarHistorico();
+    _atualizarPendentes();
   }
 
   Future<void> _carregarHistorico() async {
@@ -48,6 +56,12 @@ class _RegistrarLeitorScreenState
       _last = last;
       _history = hist;
     });
+  }
+
+  Future<void> _atualizarPendentes() async {
+    final total = await ref.read(leitorServiceProvider).pendingLeiturasCount();
+    if (!mounted) return;
+    setState(() => _pending = total);
   }
 
   String get _usuario {
@@ -63,15 +77,33 @@ class _RegistrarLeitorScreenState
     });
   }
 
-  Future<void> _onDetect(String codigo) async {
-    if (_processando) return;
-    setState(() {
-      _processando = true;
-      _erro = null;
-      _sucesso = null;
-    });
+  Future<void> _syncPendentes() async {
+    if (_sincronizando || _pending == 0) return;
+    setState(() => _sincronizando = true);
+    final result = await ref.read(leitorServiceProvider).syncLeituras();
+    await _atualizarPendentes();
+    if (!mounted) return;
+    setState(() => _sincronizando = false);
+    if (result.ok > 0 || result.fail > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${result.ok} sincronizado(s), ${result.fail} pendente(s)',
+          ),
+        ),
+      );
+    }
+  }
 
+  Future<void> _registrar(String codigo) async {
     final service = ref.read(leitorServiceProvider);
+    final online = ref.read(onlineProvider).value ?? true;
+
+    if (!online) {
+      await _salvarOffline(service, codigo);
+      return;
+    }
+
     try {
       final peca = await service.buscarPeca(
         codigo,
@@ -90,8 +122,8 @@ class _RegistrarLeitorScreenState
       if (peca.status == widget.config.statusAlvo) {
         HapticFeedback.heavyImpact();
         _piscar('red');
-        setState(() =>
-            _erro = 'Peça ${peca.identificador} já está ${widget.config.acaoLabel}');
+        setState(() => _erro =
+            'Peça ${peca.identificador} já está ${widget.config.acaoLabel}');
         await Future.delayed(const Duration(seconds: 2));
         if (mounted) setState(() => _processando = false);
         return;
@@ -104,42 +136,101 @@ class _RegistrarLeitorScreenState
         dataAtual: peca.dataReferencia,
       );
 
-      final item = <String, dynamic>{
-        'pecaId': peca.id,
-        'identificador': peca.identificador,
-        'pecaNome': peca.pecaNome.isEmpty ? peca.identificador : peca.pecaNome,
-        'obraNome': peca.obraNome,
-        'timestamp': DateTime.now().toIso8601String(),
-        'usuario': _usuario,
-      };
-      final novaHist = [item, ..._history].take(50).toList();
-      await LocalStore.setMap(widget.config.chaveLast, item);
-      await LocalStore.setList(widget.config.chaveHistory, novaHist);
+      await _finalizarSucesso(
+        service,
+        pecaId: peca.id,
+        identificador: peca.identificador,
+        pecaNome: peca.pecaNome,
+        obraNome: peca.obraNome,
+      );
+    } catch (e) {
+      // Falha de rede no meio da operação: salva offline.
+      await _salvarOffline(service, codigo);
+    }
+  }
 
-      HapticFeedback.mediumImpact();
-      _piscar('green');
+  Future<void> _salvarOffline(LeitorService service, String codigo) async {
+    await service.enqueueLeitura({
+      'kind': 'status',
+      'codigo': codigo,
+      'status': widget.config.statusAlvo,
+      'campoData': widget.config.campoData,
+      'usuario': _usuario,
+    });
+    await _atualizarPendentes();
+
+    final item = <String, dynamic>{
+      'identificador': codigo,
+      'pecaNome': codigo,
+      'timestamp': DateTime.now().toIso8601String(),
+      'usuario': _usuario,
+      'offline': true,
+    };
+    final novaHist = [item, ..._history].take(50).toList();
+    await LocalStore.setList(widget.config.chaveHistory, novaHist);
+
+    HapticFeedback.mediumImpact();
+    _piscar('green');
+    if (mounted) {
+      setState(() {
+        _history = novaHist;
+        _sucesso = 'Registrado offline — sincroniza ao reconectar';
+      });
+    }
+    await Future.delayed(const Duration(milliseconds: 1400));
+    if (mounted) {
+      setState(() {
+        _processando = false;
+        _sucesso = null;
+      });
+    }
+  }
+
+  Future<void> _finalizarSucesso(
+    LeitorService service, {
+    required String pecaId,
+    required String identificador,
+    required String pecaNome,
+    required String obraNome,
+  }) async {
+    final item = <String, dynamic>{
+      'pecaId': pecaId,
+      'identificador': identificador,
+      'pecaNome': pecaNome.isEmpty ? identificador : pecaNome,
+      'obraNome': obraNome,
+      'timestamp': DateTime.now().toIso8601String(),
+      'usuario': _usuario,
+    };
+    final novaHist = [item, ..._history].take(50).toList();
+    await LocalStore.setMap(widget.config.chaveLast, item);
+    await LocalStore.setList(widget.config.chaveHistory, novaHist);
+
+    HapticFeedback.mediumImpact();
+    _piscar('green');
+    if (mounted) {
       setState(() {
         _last = item;
         _history = novaHist;
-        _sucesso = '${peca.identificador} marcada como ${widget.config.acaoLabel}!';
+        _sucesso = '$identificador marcada como ${widget.config.acaoLabel}!';
       });
-
-      await Future.delayed(const Duration(milliseconds: 1500));
-      if (mounted) {
-        setState(() {
-          _processando = false;
-          _sucesso = null;
-        });
-      }
-    } catch (e) {
-      HapticFeedback.heavyImpact();
-      _piscar('red');
-      if (mounted) {
-        setState(() => _erro = 'Erro ao registrar: $e');
-      }
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) setState(() => _processando = false);
     }
+    await Future.delayed(const Duration(milliseconds: 1500));
+    if (mounted) {
+      setState(() {
+        _processando = false;
+        _sucesso = null;
+      });
+    }
+  }
+
+  Future<void> _onDetect(String codigo) async {
+    if (_processando) return;
+    setState(() {
+      _processando = true;
+      _erro = null;
+      _sucesso = null;
+    });
+    await _registrar(codigo);
   }
 
   @override
@@ -147,6 +238,11 @@ class _RegistrarLeitorScreenState
     final statusCfg =
         ref.watch(statusConfigProvider).value ?? StatusConfig.defaults;
     final cor = statusCfg.colorOf(widget.config.statusAlvo);
+    final online = ref.watch(onlineProvider).value ?? true;
+
+    ref.listen(onlineProvider, (previous, next) {
+      if (next.value == true) _syncPendentes();
+    });
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.config.titulo)),
@@ -155,6 +251,23 @@ class _RegistrarLeitorScreenState
           ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: [
+              if (!online)
+                _banner('Modo offline — leituras serão sincronizadas',
+                    Icons.wifi_off, AppColors.warning),
+              if (_pending > 0)
+                _banner(
+                  _sincronizando
+                      ? 'Sincronizando...'
+                      : '$_pending leitura(s) pendente(s)',
+                  Icons.cloud_upload_outlined,
+                  AppColors.info,
+                  action: _sincronizando
+                      ? null
+                      : TextButton(
+                          onPressed: _syncPendentes,
+                          child: const Text('Sincronizar'),
+                        ),
+                ),
               Text(
                 widget.config.subtitulo,
                 style: const TextStyle(color: AppColors.mutedForeground),
@@ -216,6 +329,32 @@ class _RegistrarLeitorScreenState
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _banner(String texto, IconData icon, Color color, {Widget? action}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              texto,
+              style: TextStyle(
+                  color: color, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          ?action,
         ],
       ),
     );

@@ -21,6 +21,13 @@ class PermissaoPagina {
         podeEditar: (m['pode_editar'] as bool?) ?? true,
         podeExcluir: (m['pode_excluir'] as bool?) ?? true,
       );
+
+  Map<String, dynamic> toMap() => {
+        'pode_visualizar': podeVisualizar,
+        'pode_criar': podeCriar,
+        'pode_editar': podeEditar,
+        'pode_excluir': podeExcluir,
+      };
 }
 
 class Permissao {

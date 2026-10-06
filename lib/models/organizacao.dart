@@ -51,4 +51,20 @@ class Organizacao {
       bloqueioTipo: map['bloqueio_tipo'] as String?,
     );
   }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'nome': nome,
+        'slug': slug,
+        'cnpj': cnpj,
+        'email': email,
+        'telefone': telefone,
+        'logo_url': logoUrl,
+        'plano': plano,
+        'ativo': ativo,
+        'data_expiracao': dataExpiracao?.toIso8601String(),
+        'max_usuarios': maxUsuarios,
+        'bloqueio_motivo': bloqueioMotivo,
+        'bloqueio_tipo': bloqueioTipo,
+      };
 }

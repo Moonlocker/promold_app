@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/categoria_peca.dart';
 import '../models/peca_catalogo.dart';
@@ -14,13 +15,16 @@ class PecasCatalogoRepository {
 
   // ------------------------------------------------------------------- Peças
   Future<List<PecaCatalogo>> list() async {
-    final rows = await _client
-        .from('pecas_catalogo')
-        .select('*, categorias_peca(*)')
-        .order('nome');
-    return rows
-        .map((e) => PecaCatalogo.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'catalogo:pecas',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('pecas_catalogo')
+            .select('*, categorias_peca(*)')
+            .order('nome'),
+      ),
+    );
+    return rows.map((e) => PecaCatalogo.fromMap(e)).toList();
   }
 
   Future<void> create(Map<String, dynamic> data) async {
@@ -69,10 +73,13 @@ class PecasCatalogoRepository {
 
   // -------------------------------------------------------------- Categorias
   Future<List<CategoriaPeca>> listCategorias() async {
-    final rows = await _client.from('categorias_peca').select().order('nome');
-    return rows
-        .map((e) => CategoriaPeca.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'catalogo:categorias',
+      () async => List<Map<String, dynamic>>.from(
+        await _client.from('categorias_peca').select().order('nome'),
+      ),
+    );
+    return rows.map((e) => CategoriaPeca.fromMap(e)).toList();
   }
 
   Future<CategoriaPeca> createCategoria(Map<String, dynamic> data) async {

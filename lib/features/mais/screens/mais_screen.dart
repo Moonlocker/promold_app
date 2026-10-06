@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/offline/offline_providers.dart';
+import '../../../core/offline/sync_service.dart';
 import '../../../core/router/app_module.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/supabase_providers.dart';
@@ -51,6 +54,7 @@ class MaisScreen extends ConsumerWidget {
                 organizacao: user.organizacao?.nome,
                 role: user.role,
               ),
+              const _SyncStatusCard(),
               if (modulos.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(24),
@@ -158,6 +162,84 @@ class MaisScreen extends ConsumerWidget {
     if (confirmar == true) {
       await ref.read(authServiceProvider).signOut();
     }
+  }
+}
+
+class _SyncStatusCard extends ConsumerWidget {
+  const _SyncStatusCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final online = ref.watch(onlineProvider).value ?? true;
+    final sync = ref.watch(syncStateProvider).value ?? SyncState.initial;
+    final readerPending = ref.watch(readerPendingProvider).value ?? 0;
+    final pending = sync.pending + readerPending;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    online ? Icons.cloud_done_outlined : Icons.cloud_off,
+                    size: 18,
+                    color: online ? AppColors.success : AppColors.warning,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    online ? 'Conectado' : 'Modo offline',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const Spacer(),
+                  if (sync.lastSync != null)
+                    Text(
+                      'Última: ${Formatters.dataHoraBr(sync.lastSync)}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.mutedForeground,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                pending == 0
+                    ? 'Todos os dados estão sincronizados.'
+                    : '$pending alteração(ões) aguardando sincronização.',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: (sync.syncing || !online)
+                      ? null
+                      : () => syncEverything(ref),
+                  icon: sync.syncing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.sync),
+                  label: Text(
+                    sync.syncing ? 'Sincronizando...' : 'Sincronizar agora',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

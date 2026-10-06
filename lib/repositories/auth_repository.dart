@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/app_user.dart';
 import '../models/organizacao.dart';
@@ -15,6 +16,20 @@ class AuthRepository {
   final SupabaseClient _client;
 
   Future<AppUser?> loadAppUser(User authUser) async {
+    try {
+      final user = await _buildAppUser(authUser);
+      await _cacheUser(user);
+      return user;
+    } catch (_) {
+      // Offline: reaproveita o último perfil carregado (a sessão já é
+      // persistida localmente pelo Supabase).
+      final cached = await _loadCachedUser(authUser);
+      if (cached != null) return cached;
+      rethrow;
+    }
+  }
+
+  Future<AppUser> _buildAppUser(User authUser) async {
     final profile = await _loadProfile(authUser.id);
     final role = await _loadRole(authUser.id);
     final isSuperAdmin = role == 'superadmin';
@@ -34,6 +49,50 @@ class AuthRepository {
       organizacao: organizacao,
       isSuperAdmin: isSuperAdmin,
       paginasVisiveis: paginas,
+      permissoes: permissoes,
+    );
+  }
+
+  String _cacheKey(String userId) => 'auth:appuser:$userId';
+
+  Future<void> _cacheUser(AppUser user) async {
+    await OfflineDatabase.instance.writeCache(_cacheKey(user.id), {
+      'role': user.role,
+      'profile': user.profile?.toMap(),
+      'organizacao': user.organizacao?.toMap(),
+      'isSuperAdmin': user.isSuperAdmin,
+      'paginas': user.paginasVisiveis.toList(),
+      'permissoes': user.permissoes.map((k, v) => MapEntry(k, v.toMap())),
+    });
+  }
+
+  Future<AppUser?> _loadCachedUser(User authUser) async {
+    final cached = await OfflineDatabase.instance.readCache(_cacheKey(authUser.id));
+    if (cached is! Map) return null;
+    final map = Map<String, dynamic>.from(cached);
+    final permsRaw = map['permissoes'];
+    final permissoes = <String, PermissaoPagina>{};
+    if (permsRaw is Map) {
+      permsRaw.forEach((key, value) {
+        if (value is Map) {
+          permissoes[key.toString()] =
+              PermissaoPagina.fromMap(Map<String, dynamic>.from(value));
+        }
+      });
+    }
+    return AppUser(
+      authUser: authUser,
+      role: (map['role'] as String?) ?? 'visualizador',
+      profile: map['profile'] is Map
+          ? Profile.fromMap(Map<String, dynamic>.from(map['profile'] as Map))
+          : null,
+      organizacao: map['organizacao'] is Map
+          ? Organizacao.fromMap(
+              Map<String, dynamic>.from(map['organizacao'] as Map))
+          : null,
+      isSuperAdmin: (map['isSuperAdmin'] as bool?) ?? false,
+      paginasVisiveis:
+          ((map['paginas'] as List?) ?? const []).whereType<String>().toSet(),
       permissoes: permissoes,
     );
   }

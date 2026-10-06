@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/obra_peca.dart';
 import '../models/planejamento_semanal.dart';
@@ -17,27 +18,31 @@ class ProducaoRepository {
   ///
   /// Paginado para superar o limite de linhas do PostgREST.
   Future<List<ObraPeca>> listProducao(String inicio, String fim) async {
-    const page = 1000;
-    var from = 0;
-    final all = <ObraPeca>[];
-    while (true) {
-      final rows = await _client
-          .from('obras_pecas')
-          .select('*, pecas_catalogo(*, categorias_peca(*))')
-          .not('data_concretagem', 'is', null)
-          .neq('status', 'pendente')
-          .gte('data_concretagem', inicio)
-          .lte('data_concretagem', fim)
-          .order('data_concretagem', ascending: false)
-          .range(from, from + page - 1);
-      if (rows.isEmpty) break;
-      all.addAll(
-        rows.map((e) => ObraPeca.fromMap(Map<String, dynamic>.from(e))),
-      );
-      if (rows.length < page) break;
-      from += page;
-    }
-    return all;
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'producao:$inicio:$fim',
+      () async {
+        const page = 1000;
+        var from = 0;
+        final all = <Map<String, dynamic>>[];
+        while (true) {
+          final data = await _client
+              .from('obras_pecas')
+              .select('*, pecas_catalogo(*, categorias_peca(*))')
+              .not('data_concretagem', 'is', null)
+              .neq('status', 'pendente')
+              .gte('data_concretagem', inicio)
+              .lte('data_concretagem', fim)
+              .order('data_concretagem', ascending: false)
+              .range(from, from + page - 1);
+          if (data.isEmpty) break;
+          all.addAll(data.map((e) => Map<String, dynamic>.from(e)));
+          if (data.length < page) break;
+          from += page;
+        }
+        return all;
+      },
+    );
+    return rows.map((e) => ObraPeca.fromMap(e)).toList();
   }
 
   /// Planejamento semanal contido no período (mesma regra do webapp:
@@ -47,16 +52,20 @@ class ProducaoRepository {
     String fim, {
     String? tipo,
   }) async {
-    var query = _client
-        .from('planejamento_semanal')
-        .select()
-        .gte('data_inicio', inicio)
-        .lte('data_fim', fim);
-    if (tipo != null) query = query.eq('tipo', tipo);
-    final rows = await query.order('data_inicio');
-    return rows
-        .map((e) => PlanejamentoSemanal.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'planejamento:$tipo:$inicio:$fim',
+      () async {
+        var query = _client
+            .from('planejamento_semanal')
+            .select()
+            .gte('data_inicio', inicio)
+            .lte('data_fim', fim);
+        if (tipo != null) query = query.eq('tipo', tipo);
+        final data = await query.order('data_inicio');
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      },
+    );
+    return rows.map((e) => PlanejamentoSemanal.fromMap(e)).toList();
   }
 
   /// Peças específicas (com catálogo) referenciadas por planejamentos, para
@@ -77,15 +86,18 @@ class ProducaoRepository {
     String data,
     String tipo,
   ) async {
-    final rows = await _client
-        .from('planejamento_semanal')
-        .select()
-        .eq('data_inicio', data)
-        .eq('data_fim', data)
-        .eq('tipo', tipo);
-    return rows
-        .map((e) => PlanejamentoSemanal.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'planejamento_dia:$tipo:$data',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('planejamento_semanal')
+            .select()
+            .eq('data_inicio', data)
+            .eq('data_fim', data)
+            .eq('tipo', tipo),
+      ),
+    );
+    return rows.map((e) => PlanejamentoSemanal.fromMap(e)).toList();
   }
 
   /// Cria um planejamento (uma peça em uma data).
@@ -115,13 +127,17 @@ class ProducaoRepository {
     String inicio,
     String fim,
   ) async {
-    final rows = await _client
-        .from('planejamento_montagem')
-        .select()
-        .gte('data_inicio', inicio)
-        .lte('data_fim', fim)
-        .order('data_inicio');
-    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+    return OfflineDatabase.instance.cachedRows(
+      'montagem:$inicio:$fim',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('planejamento_montagem')
+            .select()
+            .gte('data_inicio', inicio)
+            .lte('data_fim', fim)
+            .order('data_inicio'),
+      ),
+    );
   }
 
   Future<void> removerMontagem(String id) async {

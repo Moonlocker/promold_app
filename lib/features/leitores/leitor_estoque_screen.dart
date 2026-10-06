@@ -16,7 +16,6 @@ import '../../services/local_store.dart';
 const _kFixed = 'leitor_estoque_fixed';
 const _kLast = 'leitor_estoque_last';
 const _kHistory = 'leitor_estoque_history';
-const _kOffline = 'leitor_estoque_offline';
 
 enum _Step { scanEstoque, estoqueOk, scanPeca, done }
 
@@ -68,7 +67,7 @@ class _LeitorEstoqueScreenState extends ConsumerState<LeitorEstoqueScreen> {
     _fixed = await LocalStore.getBool(_kFixed);
     _last = await LocalStore.getMap(_kLast);
     _history = await LocalStore.getList(_kHistory);
-    _offline = await LocalStore.getList(_kOffline);
+    _offline = await ref.read(leitorServiceProvider).pendingLeituras();
 
     final connectivity = Connectivity();
     final inicial = await connectivity.checkConnectivity();
@@ -106,40 +105,16 @@ class _LeitorEstoqueScreenState extends ConsumerState<LeitorEstoqueScreen> {
     if (_offline.isEmpty || _sincronizando || !_isOnline) return;
     setState(() => _sincronizando = true);
     final service = ref.read(leitorServiceProvider);
-    final restantes = <Map<String, dynamic>>[];
-    var ok = 0;
-    var fail = 0;
-    for (final item in _offline) {
-      try {
-        final peca = await service.buscarPeca(
-          item['pecaId']?.toString() ?? '',
-          campoData: 'data_concretagem',
-        );
-        if (peca == null) {
-          fail++;
-          restantes.add(item);
-          continue;
-        }
-        await service.vincularEstoque(
-          pecaId: peca.id,
-          estoqueId: item['estoqueId'] as String,
-          dataConcretagem: peca.dataReferencia,
-        );
-        ok++;
-      } catch (_) {
-        fail++;
-        restantes.add(item);
-      }
-    }
-    await LocalStore.setList(_kOffline, restantes);
+    final result = await service.syncLeituras();
+    final restantes = await service.pendingLeituras();
     if (!mounted) return;
     setState(() {
       _offline = restantes;
       _sincronizando = false;
     });
-    if (ok > 0 || fail > 0) {
+    if (result.ok > 0 || result.fail > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$ok sincronizado(s), $fail falha(s)')),
+        SnackBar(content: Text('${result.ok} sincronizado(s), ${result.fail} falha(s)')),
       );
     }
   }
@@ -204,15 +179,15 @@ class _LeitorEstoqueScreenState extends ConsumerState<LeitorEstoqueScreen> {
     });
 
     if (!_isOnline) {
-      final item = <String, dynamic>{
+      final service = ref.read(leitorServiceProvider);
+      await service.enqueueLeitura({
+        'kind': 'estoque',
+        'codigo': codigo,
         'estoqueId': _estoqueId,
         'estoqueNome': _estoqueNome,
-        'pecaId': codigo,
-        'timestamp': DateTime.now().toIso8601String(),
         'usuario': _usuario,
-      };
-      final novaFila = [..._offline, item];
-      await LocalStore.setList(_kOffline, novaFila);
+      });
+      final novaFila = await service.pendingLeituras();
       HapticFeedback.mediumImpact();
       _piscar('green');
       if (mounted) {

@@ -50,6 +50,9 @@ dependencies:
   shared_preferences: ^2.5.5
   connectivity_plus: ^7.3.1
   webview_flutter: ^4.14.1
+  # Offline-first: banco local (cache + fila de sincronização)
+  sqflite: ^2.3.0
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:

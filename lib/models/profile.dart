@@ -35,4 +35,15 @@ class Profile {
       organizacaoId: map['organizacao_id'] as String?,
     );
   }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'user_id': userId,
+        'nome': nome,
+        'email': email,
+        'telefone': telefone,
+        'foto_url': fotoUrl,
+        'ativo': ativo,
+        'organizacao_id': organizacaoId,
+      };
 }
