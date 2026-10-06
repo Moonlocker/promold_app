@@ -5,8 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/offline_banner.dart';
 import '../../../providers/auth_providers.dart';
-import '../leitores/leitor_atalhos.dart';
-import '../leitores/leitores_hub_screen.dart';
+import '../leitores/widgets/global_qr_scanner_sheet.dart';
 
 /// Casca autenticada do aplicativo: mantém a barra de navegação inferior e o
 /// estado de cada aba.
@@ -47,10 +46,7 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Mantém o provider de usuário ativo enquanto o app está autenticado.
     final user = ref.watch(appUserProvider).value;
-
-    final atalhos = leitorAtalhos
-        .where((l) => user?.podeAcessarPagina(l.pagina) ?? true)
-        .toList();
+    final podeConsultar = user?.podeAcessarPagina('leitor-consulta') ?? true;
 
     return Scaffold(
       body: Column(
@@ -59,13 +55,13 @@ class AppShell extends ConsumerWidget {
           Expanded(child: navigationShell),
         ],
       ),
-      floatingActionButton: atalhos.isEmpty
+      floatingActionButton: !podeConsultar
           ? null
           : FloatingActionButton.small(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              tooltip: 'Leitores QR',
-              onPressed: () => _abrirLeitores(context, atalhos),
+              tooltip: 'Ler QR Code da peça',
+              onPressed: () => _escanear(context),
               child: const Icon(Icons.qr_code_scanner),
             ),
       bottomNavigationBar: DecoratedBox(
@@ -84,49 +80,9 @@ class AppShell extends ConsumerWidget {
     );
   }
 
-  void _abrirLeitores(BuildContext context, List<LeitorAtalho> atalhos) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.qr_code_scanner, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  const Text('Leitores QR',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(sheetContext),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              for (final l in atalhos) ...[
-                LeitorCard(
-                  item: l,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    context.push(l.rota);
-                  },
-                ),
-                const SizedBox(height: 8),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _escanear(BuildContext context) async {
+    final code = await showGlobalQrScanner(context);
+    if (code == null || code.trim().isEmpty || !context.mounted) return;
+    context.push('/leitor-consulta?code=${Uri.encodeComponent(code.trim())}');
   }
 }

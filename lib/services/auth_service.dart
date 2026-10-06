@@ -36,4 +36,8 @@ class AuthService {
 
   Future<void> sendPasswordReset(String email) =>
       _auth.resetPasswordForEmail(email.trim());
+
+  /// Altera a senha do usuário autenticado.
+  Future<void> updatePassword(String password) =>
+      _auth.updateUser(UserAttributes(password: password));
 }

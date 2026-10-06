@@ -234,7 +234,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.leitorConsulta,
-        builder: (_, _) => const LeitorConsultaScreen(),
+        builder: (context, state) => LeitorConsultaScreen(
+          initialCode: state.uri.queryParameters['code'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.leitorArmada,

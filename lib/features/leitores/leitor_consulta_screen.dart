@@ -17,7 +17,10 @@ import '../obras/widgets/obra_peca_edit_sheet.dart';
 
 /// Leitor de Consulta: mostra todos os dados de uma peça escaneada.
 class LeitorConsultaScreen extends ConsumerStatefulWidget {
-  const LeitorConsultaScreen({super.key});
+  const LeitorConsultaScreen({super.key, this.initialCode});
+
+  /// Código (UUID ou identificador) a consultar automaticamente ao abrir.
+  final String? initialCode;
 
   @override
   ConsumerState<LeitorConsultaScreen> createState() =>
@@ -32,6 +35,17 @@ class _LeitorConsultaScreenState extends ConsumerState<LeitorConsultaScreen> {
 
   final _busca = TextEditingController();
   List<Map<String, dynamic>> _resultados = [];
+
+  @override
+  void initState() {
+    super.initState();
+    final code = widget.initialCode;
+    if (code != null && code.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _consultar(code);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -241,7 +255,6 @@ class _LeitorConsultaScreenState extends ConsumerState<LeitorConsultaScreen> {
           _linha('Armação', Formatters.dataBr(peca.dataArmacao)),
           _linha('Concretagem', Formatters.dataBr(peca.dataConcretagem)),
           _linha('Estoque', Formatters.dataBr(peca.dataEstoque)),
-          _linha('Carregamento', Formatters.dataBr(peca.dataCarregamento)),
           _linha('Montagem', Formatters.dataBr(peca.dataMontagem)),
         ]),
         const SizedBox(height: 12),

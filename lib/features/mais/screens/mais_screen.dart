@@ -57,6 +57,7 @@ class MaisScreen extends ConsumerWidget {
               ),
               const _SyncStatusCard(),
               const _NotificacoesTile(),
+              const _AlterarSenhaTile(),
               if (modulos.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(24),
@@ -291,6 +292,88 @@ class _NotificacoesTile extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+class _AlterarSenhaTile extends ConsumerWidget {
+  const _AlterarSenhaTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Card(
+        child: ListTile(
+          leading:
+              const Icon(Icons.lock_outline, color: AppColors.primary),
+          title: const Text('Alterar senha'),
+          trailing: const Icon(Icons.chevron_right,
+              size: 20, color: AppColors.mutedForeground),
+          onTap: () => _abrir(context, ref),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _abrir(BuildContext context, WidgetRef ref) async {
+    final senha = TextEditingController();
+    final conf = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Alterar senha'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: senha,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Nova senha'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: conf,
+              obscureText: true,
+              decoration:
+                  const InputDecoration(labelText: 'Confirmar nova senha'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    if (senha.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('A senha deve ter ao menos 6 caracteres.')));
+      return;
+    }
+    if (senha.text != conf.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('As senhas não conferem.')));
+      return;
+    }
+    try {
+      await ref.read(authServiceProvider).updatePassword(senha.text);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Senha alterada com sucesso!')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro: $e')));
+      }
+    }
   }
 }
 
