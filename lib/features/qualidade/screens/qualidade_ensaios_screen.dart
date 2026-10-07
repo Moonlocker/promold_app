@@ -30,6 +30,7 @@ class _QualidadeEnsaiosScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(qcRealtimeProvider);
     final lotesAsync = ref.watch(qcLotesProvider);
     final cpsAsync = ref.watch(qcCpsProvider);
     final ensaiosAsync = ref.watch(qcEnsaiosProvider);

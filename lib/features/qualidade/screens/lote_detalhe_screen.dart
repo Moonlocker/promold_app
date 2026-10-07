@@ -6,10 +6,13 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../models/qc.dart';
+import '../../../providers/auth_providers.dart';
 import '../../../providers/qualidade_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../../../services/folha_moldagem_pdf_service.dart';
 import '../widgets/ensaio_form_sheet.dart';
 import '../widgets/lote_resultado.dart';
+import '../widgets/qc_anexos_sheet.dart';
 import '../widgets/qualidade_badge.dart';
 
 /// Detalhe de um lote: corpos de prova e ensaios.
@@ -20,6 +23,7 @@ class LoteDetalheScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(qcRealtimeProvider);
     final cpsAsync = ref.watch(qcCpsLoteProvider(lote.id));
     final ensaiosAsync = ref.watch(qcEnsaiosLoteProvider(lote.id));
 
@@ -33,7 +37,30 @@ class LoteDetalheScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(title: Text('Lote ${lote.codigo}')),
+      appBar: AppBar(
+        title: Text('Lote ${lote.codigo}'),
+        actions: [
+          IconButton(
+            tooltip: 'Folha de moldagem (PDF)',
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: () async {
+              try {
+                await FolhaMoldagemPdfService.gerar(
+                  lote: lote,
+                  cps: cps,
+                  organizacaoNome: ref.usuario?.organizacao?.nome,
+                );
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erro ao gerar PDF: $e')),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: cps.isEmpty
             ? null
@@ -124,19 +151,35 @@ class LoteDetalheScreen extends ConsumerWidget {
                       '${c.grupo != null ? ' · ${c.grupo}' : ''}',
                       style: const TextStyle(fontSize: 12),
                     ),
-                    trailing: ultimo != null
-                        ? Text(
-                            '${ultimo.resistenciaMpa.toStringAsFixed(1)} MPa',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: (ultimo.aprovado ?? false)
-                                  ? AppColors.success
-                                  : AppColors.foreground,
-                            ),
-                          )
-                        : const Text('—',
-                            style: TextStyle(
-                                color: AppColors.mutedForeground)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ultimo != null
+                            ? Text(
+                                '${ultimo.resistenciaMpa.toStringAsFixed(1)} MPa',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: (ultimo.aprovado ?? false)
+                                      ? AppColors.success
+                                      : AppColors.foreground,
+                                ),
+                              )
+                            : const Text('—',
+                                style:
+                                    TextStyle(color: AppColors.mutedForeground)),
+                        IconButton(
+                          tooltip: 'Anexos',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.attach_file, size: 18),
+                          onPressed: () => showQcAnexosSheet(
+                            context,
+                            ownerType: 'cp',
+                            ownerId: c.id,
+                            title: c.identificador,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }),
@@ -199,6 +242,17 @@ class LoteDetalheScreen extends ConsumerWidget {
                                   ? AppColors.success
                                   : AppColors.destructive,
                             ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Anexos',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.attach_file, size: 18),
+                          onPressed: () => showQcAnexosSheet(
+                            context,
+                            ownerType: 'ensaio',
+                            ownerId: e.id,
+                            title: cp?.identificador ?? 'Ensaio',
                           ),
                         ),
                         IconButton(

@@ -173,6 +173,42 @@ class QcEnsaio {
       );
 }
 
+class QcAnexo {
+  const QcAnexo({
+    required this.id,
+    required this.ownerType,
+    required this.ownerId,
+    required this.url,
+    required this.storagePath,
+    required this.nome,
+    this.tipo,
+    this.tamanho,
+    this.createdAt,
+  });
+
+  final String id;
+  final String ownerType; // 'cp' | 'ensaio'
+  final String ownerId;
+  final String url;
+  final String storagePath;
+  final String nome;
+  final String? tipo;
+  final int? tamanho;
+  final String? createdAt;
+
+  factory QcAnexo.fromMap(Map<String, dynamic> m) => QcAnexo(
+        id: m['id'] as String,
+        ownerType: (m['owner_type'] as String?) ?? 'cp',
+        ownerId: m['owner_id'] as String,
+        url: (m['url'] as String?) ?? '',
+        storagePath: (m['storage_path'] as String?) ?? '',
+        nome: (m['nome'] as String?) ?? '',
+        tipo: m['tipo'] as String?,
+        tamanho: (m['tamanho'] as num?)?.toInt(),
+        createdAt: m['created_at'] as String?,
+      );
+}
+
 class QcPadrao {
   const QcPadrao({
     required this.id,

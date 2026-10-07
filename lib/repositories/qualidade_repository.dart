@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/logic/qc_engine.dart';
@@ -186,6 +189,56 @@ class QualidadeRepository {
       }).eq('id', padraoCp.id);
     }
     return n;
+  }
+
+  // ---------------------------------------------------------------- Anexos
+  static const _bucketAnexos = 'obras-anexos';
+
+  Future<List<QcAnexo>> listAnexos({
+    required String ownerType,
+    required String ownerId,
+  }) async {
+    final rows = await _client
+        .from('qc_anexos')
+        .select()
+        .eq('owner_type', ownerType)
+        .eq('owner_id', ownerId)
+        .order('created_at', ascending: false);
+    return rows
+        .map((e) => QcAnexo.fromMap(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<void> uploadAnexo({
+    required String ownerType,
+    required String ownerId,
+    required Uint8List bytes,
+    required String nome,
+    String? contentType,
+  }) async {
+    final ext = nome.contains('.') ? nome.split('.').last : 'bin';
+    final path =
+        'qc/$ownerType/$ownerId/${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(99999)}.$ext';
+    await _client.storage.from(_bucketAnexos).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(upsert: false, contentType: contentType),
+        );
+    final url = _client.storage.from(_bucketAnexos).getPublicUrl(path);
+    await _client.from('qc_anexos').insert({
+      'owner_type': ownerType,
+      'owner_id': ownerId,
+      'url': url,
+      'storage_path': path,
+      'nome': nome,
+      'tipo': contentType,
+      'tamanho': bytes.length,
+    });
+  }
+
+  Future<void> deleteAnexo(QcAnexo anexo) async {
+    await _client.storage.from(_bucketAnexos).remove([anexo.storagePath]);
+    await _client.from('qc_anexos').delete().eq('id', anexo.id);
   }
 
   // --------------------------------------------------------- Rastreabilidade

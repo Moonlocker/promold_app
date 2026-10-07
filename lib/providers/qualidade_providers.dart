@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/supabase/supabase_service.dart';
 import '../models/qc.dart';
 import 'supabase_providers.dart';
 
@@ -34,6 +36,14 @@ final qcPadroesProvider = FutureProvider<List<QcPadrao>>(
   (ref) => ref.watch(qualidadeRepositoryProvider).listPadroes(),
 );
 
+/// Anexos de um corpo de prova ou ensaio (ownerType, ownerId).
+final qcAnexosProvider =
+    FutureProvider.family<List<QcAnexo>, (String, String)>(
+  (ref, key) => ref
+      .watch(qualidadeRepositoryProvider)
+      .listAnexos(ownerType: key.$1, ownerId: key.$2),
+);
+
 /// Busca de peças de obra por identificador (rastreabilidade).
 final qcBuscarPecasProvider =
     FutureProvider.family<List<Map<String, dynamic>>, String>(
@@ -45,3 +55,46 @@ final qcPecasPorLoteProvider =
     FutureProvider.family<List<Map<String, dynamic>>, String>(
   (ref, loteId) => ref.watch(qualidadeRepositoryProvider).pecasPorLote(loteId),
 );
+
+/// Assinatura em tempo real das tabelas de Qualidade. Ao assistir este
+/// provider (basta `ref.watch(qcRealtimeProvider)`), as mudanças feitas no
+/// webapp passam a invalidar os providers locais automaticamente.
+final qcRealtimeProvider = Provider<void>((ref) {
+  final client = SupabaseService.client;
+  final channel = client.channel('qc-realtime-app');
+
+  void invalidar(String table) {
+    switch (table) {
+      case 'qc_lotes_concreto':
+        ref.invalidate(qcLotesProvider);
+        break;
+      case 'qc_corpos_prova':
+        ref.invalidate(qcCpsProvider);
+        ref.invalidate(qcCpsLoteProvider);
+        break;
+      case 'qc_ensaios':
+        ref.invalidate(qcEnsaiosProvider);
+        ref.invalidate(qcEnsaiosLoteProvider);
+        break;
+      case 'qc_anexos':
+        ref.invalidate(qcAnexosProvider);
+        break;
+    }
+  }
+
+  for (final table in const [
+    'qc_lotes_concreto',
+    'qc_corpos_prova',
+    'qc_ensaios',
+    'qc_anexos',
+  ]) {
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: table,
+      callback: (_) => invalidar(table),
+    );
+  }
+  channel.subscribe();
+  ref.onDispose(() => client.removeChannel(channel));
+});

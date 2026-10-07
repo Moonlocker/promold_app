@@ -10,11 +10,22 @@ import '../../../providers/qualidade_providers.dart';
 import '../widgets/qualidade_badge.dart';
 
 /// Dashboard de Qualidade: indicadores de lotes, CPs e ensaios.
-class QualidadeDashboardScreen extends ConsumerWidget {
+class QualidadeDashboardScreen extends ConsumerStatefulWidget {
   const QualidadeDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QualidadeDashboardScreen> createState() =>
+      _QualidadeDashboardScreenState();
+}
+
+class _QualidadeDashboardScreenState
+    extends ConsumerState<QualidadeDashboardScreen> {
+  DateTime? _de;
+  DateTime? _ate;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(qcRealtimeProvider);
     final lotesAsync = ref.watch(qcLotesProvider);
     final cpsAsync = ref.watch(qcCpsProvider);
     final ensaiosAsync = ref.watch(qcEnsaiosProvider);
@@ -26,9 +37,16 @@ class QualidadeDashboardScreen extends ConsumerWidget {
       );
     }
 
-    final lotes = lotesAsync.value ?? const <QcLote>[];
-    final cps = cpsAsync.value ?? const <QcCorpoProva>[];
-    final ensaios = ensaiosAsync.value ?? const <QcEnsaio>[];
+    final todosLotes = lotesAsync.value ?? const <QcLote>[];
+    final todosCps = cpsAsync.value ?? const <QcCorpoProva>[];
+    final todosEnsaios = ensaiosAsync.value ?? const <QcEnsaio>[];
+
+    final lotes = todosLotes.where((l) => _noPeriodo(l.dataConcretagem)).toList();
+    final loteIds = lotes.map((l) => l.id).toSet();
+    final cps = todosCps.where((c) => loteIds.contains(c.loteId)).toList();
+    final cpIds = cps.map((c) => c.id).toSet();
+    final ensaios =
+        todosEnsaios.where((e) => cpIds.contains(e.corpoProvaId)).toList();
 
     final status = calcularStatusLotes(lotes: lotes, cps: cps, ensaios: ensaios);
     var aprov = 0, reprov = 0, aguard = 0;
@@ -75,6 +93,8 @@ class QualidadeDashboardScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
+            _filtroPeriodo(),
+            const SizedBox(height: 12),
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -183,6 +203,87 @@ class QualidadeDashboardScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _noPeriodo(String dataIso) {
+    if (_de == null && _ate == null) return true;
+    final d = DateTime.tryParse(dataIso);
+    if (d == null) return false;
+    if (_de != null && d.isBefore(DateTime(_de!.year, _de!.month, _de!.day))) {
+      return false;
+    }
+    if (_ate != null &&
+        d.isAfter(DateTime(_ate!.year, _ate!.month, _ate!.day, 23, 59, 59))) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _pickDate(bool inicio) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: (inicio ? _de : _ate) ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (inicio) {
+        _de = picked;
+      } else {
+        _ate = picked;
+      }
+    });
+  }
+
+  Widget _filtroPeriodo() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Período (data de concretagem)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickDate(true),
+                    icon: const Icon(Icons.calendar_today, size: 15),
+                    label: Text(
+                      _de == null ? 'De' : Formatters.dataBr(_de),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickDate(false),
+                    icon: const Icon(Icons.event, size: 15),
+                    label: Text(
+                      _ate == null ? 'Até' : Formatters.dataBr(_ate),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                if (_de != null || _ate != null)
+                  IconButton(
+                    tooltip: 'Limpar período',
+                    onPressed: () => setState(() {
+                      _de = null;
+                      _ate = null;
+                    }),
+                    icon: const Icon(Icons.close, size: 18),
+                  ),
+              ],
             ),
           ],
         ),
