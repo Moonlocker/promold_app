@@ -66,6 +66,19 @@ class SistemaRepository {
     await _client.from('support_ticket_messages').insert(data);
   }
 
+  /// Vídeos tutoriais ativos da plataforma (tabela `tutoriais_videos`).
+  Future<List<TutorialVideo>> listTutoriais() async {
+    final rows = await _client
+        .from('tutoriais_videos')
+        .select()
+        .eq('ativo', true)
+        .order('modulo')
+        .order('ordem');
+    return rows
+        .map((e) => TutorialVideo.fromMap(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
   // --------------------------------------------------------- Configurações
   Future<Map<String, dynamic>?> getOrganizacao(String id) async {
     final row = await _client

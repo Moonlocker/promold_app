@@ -37,6 +37,61 @@ class SupportTicket {
       );
 }
 
+class TutorialVideo {
+  const TutorialVideo({
+    required this.id,
+    required this.titulo,
+    this.descricao,
+    this.modulo,
+    this.pagina,
+    this.youtubeId,
+    this.youtubeUrl,
+    this.ordem = 0,
+  });
+
+  final String id;
+  final String titulo;
+  final String? descricao;
+  final String? modulo;
+  final String? pagina;
+  final String? youtubeId;
+  final String? youtubeUrl;
+  final int ordem;
+
+  /// ID do vídeo no YouTube (usa `youtube_id` ou extrai da URL).
+  String? get videoId {
+    if (youtubeId != null && youtubeId!.isNotEmpty) return youtubeId;
+    return _extrairYoutubeId(youtubeUrl);
+  }
+
+  factory TutorialVideo.fromMap(Map<String, dynamic> m) => TutorialVideo(
+        id: m['id'] as String,
+        titulo: (m['titulo'] as String?) ?? 'Vídeo',
+        descricao: m['descricao'] as String?,
+        modulo: m['modulo'] as String?,
+        pagina: m['pagina'] as String?,
+        youtubeId: m['youtube_id'] as String?,
+        youtubeUrl: m['youtube_url'] as String?,
+        ordem: (m['ordem'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// Extrai o ID de um vídeo do YouTube (porte de `extractYoutubeId`).
+String? _extrairYoutubeId(String? url) {
+  if (url == null || url.trim().isEmpty) return null;
+  final patterns = [
+    RegExp(
+        r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([A-Za-z0-9_-]{11})'),
+    RegExp(r'youtube\.com/.*[?&]v=([A-Za-z0-9_-]{11})'),
+  ];
+  for (final re in patterns) {
+    final m = re.firstMatch(url);
+    if (m != null && m.groupCount >= 1) return m.group(1);
+  }
+  if (RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(url.trim())) return url.trim();
+  return null;
+}
+
 class SupportMessage {
   const SupportMessage({
     required this.id,

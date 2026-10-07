@@ -20,6 +20,11 @@ final ticketMessagesProvider =
   (ref, ticketId) => ref.watch(sistemaRepositoryProvider).listMessages(ticketId),
 );
 
+/// Vídeos tutoriais ativos da plataforma.
+final tutoriaisVideosProvider = FutureProvider<List<TutorialVideo>>(
+  (ref) => ref.watch(sistemaRepositoryProvider).listTutoriais(),
+);
+
 /// Usuários da organização (profiles).
 final usuariosListProvider = FutureProvider<List<Map<String, dynamic>>>(
   (ref) => ref.watch(sistemaRepositoryProvider).listUsuarios(),
