@@ -12,6 +12,7 @@ class ObraHistorico {
     this.responsavel,
     this.createdAt,
     this.source = 'historico',
+    this.obraNome,
   });
 
   final String id;
@@ -25,9 +26,13 @@ class ObraHistorico {
   /// 'historico' ou 'planejamento'.
   final String source;
 
+  /// Nome da obra (quando o relacionamento `obras(nome)` foi carregado).
+  final String? obraNome;
+
   bool get isManual => tipo == 'manual' && source == 'historico';
 
   factory ObraHistorico.fromMap(Map<String, dynamic> map) {
+    final obra = map['obras'];
     return ObraHistorico(
       id: map['id'] as String,
       obraId: (map['obra_id'] as String?) ?? '',
@@ -36,6 +41,7 @@ class ObraHistorico {
       detalhes: map['detalhes'] as String?,
       responsavel: map['responsavel'] as String?,
       createdAt: Parse.date(map['created_at']),
+      obraNome: obra is Map ? obra['nome'] as String? : null,
     );
   }
 }

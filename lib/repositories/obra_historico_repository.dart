@@ -47,6 +47,85 @@ class ObraHistoricoRepository {
     return merged;
   }
 
+  /// Atividade recente global (todas as obras) das últimas [horas] horas.
+  /// Mescla `obras_historico` (sem auditoria) com `planejamento_logs`.
+  Future<List<ObraHistorico>> listRecentActivity({
+    int horas = 24,
+    int limit = 80,
+  }) async {
+    final desde = DateTime.now()
+        .toUtc()
+        .subtract(Duration(hours: horas))
+        .toIso8601String();
+
+    final histRows = await _client
+        .from('obras_historico')
+        .select(
+            'id, tipo, descricao, detalhes, responsavel, created_at, obra_id, obras(nome)')
+        .neq('tipo', 'auditoria')
+        .gte('created_at', desde)
+        .order('created_at', ascending: false)
+        .limit(limit);
+
+    final logRows = await _client
+        .from('planejamento_logs')
+        .select(
+            'id, acao, descricao, created_at, usuario_id, tipo_planejamento, obra_id, obras(nome)')
+        .gte('created_at', desde)
+        .order('created_at', ascending: false)
+        .limit(limit);
+
+    final userIds = logRows
+        .map((e) => e['usuario_id'])
+        .whereType<String>()
+        .toSet()
+        .toList();
+    final nomes = <String, String>{};
+    if (userIds.isNotEmpty) {
+      final perfis = await _client
+          .from('profiles')
+          .select('user_id, nome, email')
+          .inFilter('user_id', userIds);
+      for (final p in perfis) {
+        final uid = p['user_id'] as String?;
+        if (uid == null) continue;
+        nomes[uid] = (p['nome'] as String?)?.isNotEmpty == true
+            ? p['nome'] as String
+            : ((p['email'] as String?) ?? 'Usuário');
+      }
+    }
+
+    final historico = histRows
+        .map((e) => ObraHistorico.fromMap(Map<String, dynamic>.from(e)))
+        .where((h) => !RegExp('impersona', caseSensitive: false)
+            .hasMatch(h.descricao))
+        .toList();
+
+    final logs = logRows.map((e) {
+      final map = Map<String, dynamic>.from(e);
+      final obra = map['obras'];
+      return ObraHistorico(
+        id: 'plan-${map['id']}',
+        obraId: (map['obra_id'] as String?) ?? '',
+        tipo: 'planejamento',
+        descricao: (map['descricao'] as String?) ??
+            'Planejamento ${map['tipo_planejamento']} ${map['acao']}',
+        responsavel: nomes[map['usuario_id']],
+        createdAt: DateTime.tryParse(map['created_at'] as String? ?? ''),
+        source: 'planejamento',
+        obraNome: obra is Map ? obra['nome'] as String? : null,
+      );
+    }).toList();
+
+    final merged = <ObraHistorico>[...historico, ...logs]
+      ..sort((a, b) {
+        final da = a.createdAt?.toIso8601String() ?? '';
+        final db = b.createdAt?.toIso8601String() ?? '';
+        return db.compareTo(da);
+      });
+    return merged;
+  }
+
   Future<List<ObraHistorico>> _listPlanejamentoLogs(String obraId) async {
     final rows = await _client
         .from('planejamento_logs')

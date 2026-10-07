@@ -14,6 +14,8 @@ import '../../../providers/auth_providers.dart';
 import '../../../providers/equipe_providers.dart';
 import '../../../providers/notificacoes_providers.dart';
 import '../../../providers/obra_providers.dart';
+import '../widgets/producao_semanal_chart.dart';
+import '../widgets/recent_activity_card.dart';
 
 /// Dashboard inicial, espelhando as métricas de `src/pages/Dashboard.tsx`.
 class DashboardScreen extends ConsumerWidget {
@@ -155,6 +157,11 @@ class DashboardScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
               ],
+              const SizedBox(height: 16),
+              const ProducaoSemanalChart(),
+              const SizedBox(height: 16),
+              const RecentActivityCard(),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

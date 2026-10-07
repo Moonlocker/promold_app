@@ -46,6 +46,16 @@ class Formatters {
     'dezembro',
   ];
 
+  /// Tempo relativo curto (ex.: `há 5 min`, `há 2 h`).
+  static String tempoAtras(DateTime? d) {
+    if (d == null) return '';
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 1) return 'agora';
+    if (diff.inMinutes < 60) return 'há ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'há ${diff.inHours} h';
+    return 'há ${diff.inDays} d';
+  }
+
   static String dataHoraBr(DateTime? d) {
     if (d == null) return '--';
     final dia = d.day.toString().padLeft(2, '0');
