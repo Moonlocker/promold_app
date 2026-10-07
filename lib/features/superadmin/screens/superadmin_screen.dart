@@ -6,9 +6,13 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../providers/superadmin_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../widgets/superadmin_backup_tab.dart';
+import '../widgets/superadmin_config_globais_tab.dart';
+import '../widgets/superadmin_faturamento_tab.dart';
 import '../widgets/superadmin_flags_tab.dart';
 import '../widgets/superadmin_inadimplencia_tab.dart';
 import '../widgets/superadmin_modulos_tab.dart';
+import '../widgets/superadmin_planos_tab.dart';
 import '../widgets/superadmin_suporte_tab.dart';
 import '../widgets/superadmin_usuarios_tab.dart';
 
@@ -19,7 +23,7 @@ class SuperAdminScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 8,
+      length: 12,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('SuperAdmin'),
@@ -32,8 +36,12 @@ class SuperAdminScreen extends StatelessWidget {
               Tab(text: 'Usuários'),
               Tab(text: 'Módulos & Páginas'),
               Tab(text: 'Feature Flags'),
+              Tab(text: 'Planos'),
+              Tab(text: 'Faturamento'),
               Tab(text: 'Suporte'),
               Tab(text: 'Inadimplência'),
+              Tab(text: 'Config. Globais'),
+              Tab(text: 'Backup'),
               Tab(text: 'Auditoria'),
             ],
           ),
@@ -45,8 +53,12 @@ class SuperAdminScreen extends StatelessWidget {
             SuperAdminUsuariosTab(),
             SuperAdminModulosTab(),
             SuperAdminFlagsTab(),
+            SuperAdminPlanosTab(),
+            SuperAdminFaturamentoTab(),
             SuperAdminSuporteTab(),
             SuperAdminInadimplenciaTab(),
+            SuperAdminConfigGlobaisTab(),
+            SuperAdminBackupTab(),
             _AuditoriaTab(),
           ],
         ),

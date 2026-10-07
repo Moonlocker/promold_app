@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase/supabase_service.dart';
@@ -273,5 +275,196 @@ class SuperAdminRepository {
     } catch (_) {
       // RPC pode não existir; ignora silenciosamente.
     }
+  }
+
+  // --------------------------------------------------------------- Planos
+  Future<List<Map<String, dynamic>>> listPlanos() async {
+    final rows = await _client.from('planos').select().order('ordem');
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> savePlano(Map<String, dynamic> data, {String? id}) async {
+    if (id != null) {
+      await _client.from('planos').update(data).eq('id', id);
+    } else {
+      await _client.from('planos').insert(data);
+    }
+  }
+
+  Future<void> deletePlano(String id) async {
+    await _client.from('planos_faixas_m3').delete().eq('plano_id', id);
+    await _client.from('planos_modulos').delete().eq('plano_id', id);
+    await _client.from('planos').delete().eq('id', id);
+  }
+
+  Future<List<Map<String, dynamic>>> listPlanoFaixas(String planoId) async {
+    final rows = await _client
+        .from('planos_faixas_m3')
+        .select()
+        .eq('plano_id', planoId)
+        .order('m3_min');
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> savePlanoFaixa(Map<String, dynamic> data, {String? id}) async {
+    if (id != null) {
+      await _client.from('planos_faixas_m3').update(data).eq('id', id);
+    } else {
+      await _client.from('planos_faixas_m3').insert(data);
+    }
+  }
+
+  Future<void> deletePlanoFaixa(String id) async {
+    await _client.from('planos_faixas_m3').delete().eq('id', id);
+  }
+
+  Future<List<String>> listPlanoModulos(String planoId) async {
+    final rows = await _client
+        .from('planos_modulos')
+        .select('modulo_id')
+        .eq('plano_id', planoId);
+    return rows.map((e) => e['modulo_id'] as String).toList();
+  }
+
+  Future<void> setPlanoModulos(String planoId, List<String> moduloIds) async {
+    await _client.from('planos_modulos').delete().eq('plano_id', planoId);
+    if (moduloIds.isNotEmpty) {
+      await _client.from('planos_modulos').insert(
+            moduloIds
+                .map((m) => {'plano_id': planoId, 'modulo_id': m})
+                .toList(),
+          );
+    }
+  }
+
+  // ------------------------------------------- Configurações globais/secretas
+  Future<List<Map<String, dynamic>>> listConfigGlobais() async {
+    final rows = await _client.from('configuracoes_globais').select();
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> upsertConfigGlobal(String chave, String? valor) async {
+    await _client.from('configuracoes_globais').upsert(
+      {'chave': chave, 'valor': valor},
+      onConflict: 'chave',
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> listConfigSecretas() async {
+    final rows = await _client
+        .from('configuracoes_secretas')
+        .select('chave, valor, descricao');
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> upsertConfigSecreta(String chave, String? valor) async {
+    await _client.from('configuracoes_secretas').upsert(
+      {'chave': chave, 'valor': valor},
+      onConflict: 'chave',
+    );
+  }
+
+  // ------------------------------------------------------------ Faturamento
+  Future<List<Map<String, dynamic>>> listFaturas(int ano, int mes) async {
+    final rows = await _client
+        .from('faturas_saas')
+        .select()
+        .eq('ano', ano)
+        .eq('mes', mes);
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<Map<String, dynamic>> calcularFatura(
+    String orgId,
+    int ano,
+    int mes,
+  ) async {
+    for (final fn in const ['calcular_fatura_org_v2', 'calcular_fatura_org']) {
+      try {
+        final r = await _client.rpc(fn, params: {
+          '_org_id': orgId,
+          '_ano': ano,
+          '_mes': mes,
+        });
+        if (r is Map) return Map<String, dynamic>.from(r);
+        if (r is List && r.isNotEmpty && r.first is Map) {
+          return Map<String, dynamic>.from(r.first as Map);
+        }
+      } catch (_) {
+        // tenta a próxima função
+      }
+    }
+    return <String, dynamic>{};
+  }
+
+  Future<void> upsertFatura(Map<String, dynamic> data) async {
+    await _client.from('faturas_saas').upsert(
+      data,
+      onConflict: 'organizacao_id,ano,mes',
+    );
+  }
+
+  Future<void> updateFatura(String id, Map<String, dynamic> data) async {
+    await _client.from('faturas_saas').update(data).eq('id', id);
+  }
+
+  Future<void> deleteFatura(String id) async {
+    await _client.from('faturas_saas').delete().eq('id', id);
+  }
+
+  Future<String> uploadNotaFiscal({
+    required String faturaId,
+    required Uint8List bytes,
+    required String nomeArquivo,
+  }) async {
+    final ext = nomeArquivo.contains('.')
+        ? nomeArquivo.split('.').last
+        : 'pdf';
+    final path = '$faturaId/nf-${DateTime.now().millisecondsSinceEpoch}.$ext';
+    await _client.storage.from('faturas-saas').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+    return _client.storage.from('faturas-saas').getPublicUrl(path);
+  }
+
+  // -------------------------------------------------------------- Backup
+  Future<Map<String, dynamic>> backupManifest(String orgId) async {
+    final res = await _client.functions.invoke(
+      'org-backup',
+      body: {'action': 'manifest', 'org_id': orgId},
+    );
+    final data = res.data;
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<Map<String, dynamic>> backupExport(
+    String orgId, {
+    bool includeStorage = true,
+  }) async {
+    final res = await _client.functions.invoke(
+      'org-backup',
+      body: {
+        'action': 'export',
+        'org_id': orgId,
+        'include_storage': includeStorage,
+      },
+    );
+    final data = res.data;
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<Map<String, dynamic>> backupImport(Map<String, dynamic> backup) async {
+    final res = await _client.functions.invoke(
+      'org-backup',
+      body: {
+        'action': 'import',
+        'backup': backup,
+        'import_org': true,
+      },
+    );
+    final data = res.data;
+    return data is Map ? Map<String, dynamic>.from(data) : {};
   }
 }
