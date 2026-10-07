@@ -1,16 +1,20 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../providers/auth_providers.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_view.dart';
+import '../../../core/widgets/xlsx_import_sheet.dart';
 import '../../../models/conta_financeira.dart';
 import '../../../providers/cadastros_providers.dart';
 import '../../../providers/financeiro_providers.dart';
+import '../../../providers/fiscal_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../../../services/xlsx_service.dart';
+import '../../fornecedores/widgets/fornecedor_form_sheet.dart';
 import '../widgets/cobranca_sheet.dart';
 import '../widgets/conta_form_sheet.dart';
 import '../widgets/liquidacao_sheet.dart';
@@ -70,8 +74,13 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
         title: Text(_isPagar ? 'Contas a Pagar' : 'Contas a Receber'),
         actions: [
           IconButton(
-            tooltip: 'Exportar CSV',
-            onPressed: _exportarCsv,
+            tooltip: 'Importar XLSX',
+            onPressed: _importarXlsx,
+            icon: const Icon(Icons.upload_file_outlined),
+          ),
+          IconButton(
+            tooltip: 'Exportar XLSX',
+            onPressed: _exportarXlsx,
             icon: const Icon(Icons.file_download_outlined),
           ),
         ],
@@ -273,7 +282,7 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
     });
   }
 
-  Future<void> _exportarCsv() async {
+  Future<void> _exportarXlsx() async {
     final contas = (_isPagar
                 ? ref.read(contasPagarListProvider)
                 : ref.read(contasReceberListProvider))
@@ -288,32 +297,104 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
     }
     final cats =
         ref.read(categoriasFinanceirasListProvider).value ?? const [];
-    String esc(Object? v) {
-      final s = (v ?? '').toString().replaceAll('"', '""');
-      return '"$s"';
+    final fornecedores = ref.read(fornecedoresListProvider).value ?? const [];
+    String? catNome(String? id) =>
+        cats.where((x) => x.id == id).firstOrNull?.nome;
+    String? fornNome(String? id) {
+      final f = fornecedores.where((x) => x.id == id).firstOrNull;
+      if (f == null) return null;
+      return f.nomeFantasia ?? f.razaoSocial;
     }
 
-    final sb = StringBuffer()
-      ..writeln(
-          'Descricao;Vencimento;Valor;Liquidado;Status;Categoria;Cliente');
-    for (final c in filtradas) {
-      final cat = cats.where((x) => x.id == c.categoriaId).firstOrNull?.nome;
-      sb.writeln([
-        esc(c.descricao),
-        esc(c.dataVencimento),
-        c.valor.toStringAsFixed(2).replaceAll('.', ','),
-        c.liquidado.toStringAsFixed(2).replaceAll('.', ','),
-        esc(c.statusEfetivo),
-        esc(cat),
-        esc(c.cliente),
-      ].join(';'));
-    }
-    await Clipboard.setData(ClipboardData(text: sb.toString()));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('CSV copiado (${filtradas.length} linha(s))')),
+    try {
+      final ok = await XlsxService.exportar(
+        nomeArquivo:
+            'contas-${_isPagar ? 'pagar' : 'receber'}-${Formatters.hojeBr()}.xlsx',
+        headers: [
+          'Descrição',
+          'Valor',
+          _isPagar ? 'Pago' : 'Recebido',
+          'Vencimento',
+          'Status',
+          _isPagar ? 'Fornecedor' : 'Cliente',
+          'Categoria',
+        ],
+        rows: filtradas
+            .map((c) => [
+                  c.descricao,
+                  c.valor,
+                  c.liquidado,
+                  c.dataVencimento,
+                  c.statusEfetivo,
+                  _isPagar ? (fornNome(c.fornecedorId) ?? '') : (c.cliente ?? ''),
+                  catNome(c.categoriaId) ?? '',
+                ])
+            .toList(),
       );
+      if (mounted && ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${filtradas.length} linha(s) exportada(s)')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao exportar: $e')));
+      }
     }
+  }
+
+  Future<void> _importarXlsx() async {
+    final ok = await showXlsxImportSheet(
+      context,
+      title: _isPagar ? 'Importar Contas a Pagar' : 'Importar Contas a Receber',
+      templateName: _isPagar ? 'contas-pagar' : 'contas-receber',
+      columns: [
+        const XlsxImportColumn(
+            key: 'descricao',
+            label: 'Descrição',
+            required: true,
+            example: 'Aluguel galpão'),
+        const XlsxImportColumn(
+            key: 'valor',
+            label: 'Valor',
+            required: true,
+            isNumber: true,
+            example: '1500.00'),
+        const XlsxImportColumn(
+            key: 'data_vencimento',
+            label: 'Vencimento (AAAA-MM-DD)',
+            required: true,
+            example: '2026-06-10'),
+        if (!_isPagar)
+          const XlsxImportColumn(
+              key: 'cliente', label: 'Cliente', example: 'Construtora ABC'),
+        const XlsxImportColumn(key: 'observacoes', label: 'Observações'),
+      ],
+      onImport: (rows) async {
+        final normalizadas = rows.map((r) {
+          final map = Map<String, dynamic>.from(r);
+          map['data_vencimento'] =
+              _normalizarData(map['data_vencimento'] as String?);
+          return map;
+        }).toList();
+        await ref
+            .read(financeiroRepositoryProvider)
+            .createParcelas(widget.tipo, normalizadas);
+        return normalizadas.length;
+      },
+    );
+    if (ok == true) _invalidar();
+  }
+
+  static String? _normalizarData(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final v = raw.trim();
+    final iso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(v);
+    if (iso != null) return '${iso[1]}-${iso[2]}-${iso[3]}';
+    final br = RegExp(r'^(\d{2})/(\d{2})/(\d{4})').firstMatch(v);
+    if (br != null) return '${br[3]}-${br[2]}-${br[1]}';
+    return v;
   }
 
   ({double total, double liquidado, double pendente, double vencido})
@@ -434,6 +515,10 @@ class _ContaCard extends ConsumerWidget {
                               fontSize: 11.5, color: AppColors.success),
                         ),
                       ],
+                      if (conta.isPagar && conta.notaFiscalId != null) ...[
+                        const SizedBox(width: 4),
+                        _NotaFiscalButton(notaFiscalId: conta.notaFiscalId!),
+                      ],
                     ],
                   ),
                 ],
@@ -471,6 +556,12 @@ class _ContaCard extends ConsumerWidget {
                               : 'financeiro-contas-receber'))
                             const PopupMenuItem(
                                 value: 'editar', child: Text('Editar conta')),
+                          if (conta.isPagar &&
+                              conta.fornecedorId != null &&
+                              ref.podeEditar('financeiro-contas-pagar'))
+                            const PopupMenuItem(
+                                value: 'editar_fornecedor',
+                                child: Text('Editar dados do fornecedor')),
                           if (ref.podeEditar(conta.isPagar
                                   ? 'financeiro-contas-pagar'
                                   : 'financeiro-contas-receber') &&
@@ -531,6 +622,15 @@ class _ContaCard extends ConsumerWidget {
         final ok = await showContaFormSheet(context,
             tipo: conta.tipo, conta: conta);
         if (ok == true) onChanged();
+      case 'editar_fornecedor':
+        final fornecedores =
+            ref.read(fornecedoresListProvider).value ?? const [];
+        final f =
+            fornecedores.where((x) => x.id == conta.fornecedorId).firstOrNull;
+        if (f != null) {
+          final ok = await showFornecedorFormSheet(context, fornecedor: f);
+          if (ok == true) onChanged();
+        }
       case 'liquidar':
         final ok = await showLiquidacaoSheet(context, conta: conta);
         if (ok == true) onChanged();
@@ -588,6 +688,43 @@ class _ContaCard extends ConsumerWidget {
           onChanged();
         }
     }
+  }
+}
+
+class _NotaFiscalButton extends ConsumerWidget {
+  const _NotaFiscalButton({required this.notaFiscalId});
+
+  final String notaFiscalId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notas = ref.watch(notasRecebidasProvider).value ?? const [];
+    final nota = notas.where((n) => n.id == notaFiscalId).firstOrNull;
+    if (nota == null) return const SizedBox.shrink();
+    return PopupMenuButton<String>(
+      tooltip: 'NF ${nota.numero ?? ''}/${nota.serie ?? ''}',
+      padding: EdgeInsets.zero,
+      icon: const Icon(Icons.receipt_long, size: 18, color: AppColors.primary),
+      onSelected: (v) async {
+        final url = v == 'danfe' ? nota.danfeUrl : nota.xmlUrl;
+        if (url != null && url.isNotEmpty) {
+          await launchUrl(Uri.parse(url),
+              mode: LaunchMode.externalApplication);
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'danfe',
+          enabled: (nota.danfeUrl ?? '').isNotEmpty,
+          child: const Text('Baixar DANFE'),
+        ),
+        PopupMenuItem(
+          value: 'xml',
+          enabled: (nota.xmlUrl ?? '').isNotEmpty,
+          child: const Text('Baixar XML'),
+        ),
+      ],
+    );
   }
 }
 

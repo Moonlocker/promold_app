@@ -6,6 +6,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../models/conta_financeira.dart';
 import '../../../providers/cadastros_providers.dart';
 import '../../../providers/financeiro_providers.dart';
+import '../../../providers/fiscal_providers.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/supabase_providers.dart';
 
@@ -46,6 +47,7 @@ class _ContaFormSheetState extends ConsumerState<_ContaFormSheet> {
   String? _categoriaId;
   String? _centroId;
   String? _fornecedorId;
+  String? _notaFiscalId;
   String? _clienteId;
   String? _obraId;
   DateTime? _vencimento;
@@ -69,6 +71,7 @@ class _ContaFormSheetState extends ConsumerState<_ContaFormSheet> {
     _categoriaId = c?.categoriaId;
     _centroId = c?.centroCustoId;
     _fornecedorId = c?.fornecedorId;
+    _notaFiscalId = c?.notaFiscalId;
     _clienteId = c?.clienteId;
     _obraId = c?.obraId;
     _vencimento = c != null ? DateTime.tryParse(c.dataVencimento) : null;
@@ -120,6 +123,7 @@ class _ContaFormSheetState extends ConsumerState<_ContaFormSheet> {
         await repo.updateConta(widget.tipo, widget.conta!.id, {
           ...base,
           if (_isPagar) 'fornecedor_id': _fornecedorId,
+          if (_isPagar) 'nota_fiscal_id': _notaFiscalId,
           if (!_isPagar) 'fornecedor_id': null,
           if (!_isPagar) 'cliente_id': _clienteId,
           if (!_isPagar)
@@ -152,6 +156,7 @@ class _ContaFormSheetState extends ConsumerState<_ContaFormSheet> {
             'num_parcela': i + 1,
             'total_parcelas': nClamped,
             if (_isPagar) 'fornecedor_id': _fornecedorId,
+            if (_isPagar) 'nota_fiscal_id': _notaFiscalId,
             if (!_isPagar) 'cliente_id': _clienteId,
             if (!_isPagar)
               'cliente': _clienteLivre.text.trim().isEmpty
@@ -164,6 +169,7 @@ class _ContaFormSheetState extends ConsumerState<_ContaFormSheet> {
         await repo.createConta(widget.tipo, {
           ...base,
           if (_isPagar) 'fornecedor_id': _fornecedorId,
+          if (_isPagar) 'nota_fiscal_id': _notaFiscalId,
           if (!_isPagar) 'cliente_id': _clienteId,
           if (!_isPagar)
             'cliente': _clienteLivre.text.trim().isEmpty
@@ -195,6 +201,8 @@ class _ContaFormSheetState extends ConsumerState<_ContaFormSheet> {
     final categorias = ref.watch(categoriasFinanceirasListProvider).value ?? [];
     final centros = ref.watch(centrosCustoListProvider).value ?? [];
     final fornecedores = ref.watch(fornecedoresListProvider).value ?? [];
+    final notasRecebidas =
+        ref.watch(notasRecebidasProvider).value ?? const [];
     final clientes = ref.watch(clientesListProvider).value ?? [];
     final obras = ref.watch(obrasListProvider).value ?? [];
 
@@ -329,7 +337,7 @@ class _ContaFormSheetState extends ConsumerState<_ContaFormSheet> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (_isPagar)
+              if (_isPagar) ...[
                 DropdownButtonFormField<String>(
                   initialValue: _fornecedorId,
                   isExpanded: true,
@@ -344,8 +352,28 @@ class _ContaFormSheetState extends ConsumerState<_ContaFormSheet> {
                       .toList(),
                   onChanged:
                       _saving ? null : (v) => setState(() => _fornecedorId = v),
-                )
-              else ...[
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _notaFiscalId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                      labelText: 'Nota fiscal recebida (DANFE/XML)'),
+                  items: notasRecebidas
+                      .map((n) => DropdownMenuItem(
+                            value: n.id,
+                            child: Text(
+                              '${n.numero ?? '—'}/${n.serie ?? '—'}'
+                              '${(n.emitenteNome ?? '').isNotEmpty ? ' · ${n.emitenteNome}' : ''}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: _saving
+                      ? null
+                      : (v) => setState(() => _notaFiscalId = v),
+                ),
+              ] else ...[
                 DropdownButtonFormField<String>(
                   initialValue: _clienteId,
                   isExpanded: true,

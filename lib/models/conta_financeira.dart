@@ -18,6 +18,7 @@ class ContaFinanceira {
     this.totalParcelas,
     // Pagar
     this.fornecedorId,
+    this.notaFiscalId,
     this.dataPagamento,
     this.metodoPagamento,
     this.valorPago,
@@ -50,6 +51,7 @@ class ContaFinanceira {
   final int? totalParcelas;
 
   final String? fornecedorId;
+  final String? notaFiscalId;
   final String? dataPagamento;
   final String? metodoPagamento;
   final double? valorPago;
@@ -115,6 +117,7 @@ class ContaFinanceira {
       numParcela: (map['num_parcela'] as num?)?.toInt(),
       totalParcelas: (map['total_parcelas'] as num?)?.toInt(),
       fornecedorId: map['fornecedor_id'] as String?,
+      notaFiscalId: map['nota_fiscal_id'] as String?,
       dataPagamento: map['data_pagamento'] as String?,
       metodoPagamento: map['metodo_pagamento'] as String?,
       valorPago: map['valor_pago'] == null ? null : _d(map['valor_pago']),
