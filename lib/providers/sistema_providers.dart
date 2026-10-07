@@ -47,6 +47,40 @@ final orcamentoItensProvider =
       ref.watch(sistemaRepositoryProvider).listOrcamentoItens(orcamentoId),
 );
 
+/// Anexos de um orçamento.
+final orcamentoAnexosProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>(
+  (ref, orcamentoId) =>
+      ref.watch(sistemaRepositoryProvider).listOrcamentoAnexos(orcamentoId),
+);
+
+/// Histórico de acessos ao link público de um orçamento.
+final orcamentoAcessoLogProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>(
+  (ref, orcamentoId) =>
+      ref.watch(sistemaRepositoryProvider).listOrcamentoAcessoLog(orcamentoId),
+);
+
+/// Catálogo de composições (templates) de orçamento.
+final orcamentoCatalogoProvider =
+    FutureProvider<List<Map<String, dynamic>>>(
+  (ref) => ref.watch(orcamentoComposicoesRepositoryProvider).listCatalogo(),
+);
+
+/// Catálogo de insumos de orçamento.
+final orcamentoCatalogoInsumosProvider =
+    FutureProvider<List<Map<String, dynamic>>>(
+  (ref) => ref.watch(orcamentoComposicoesRepositoryProvider).listInsumos(),
+);
+
+/// Insumos de uma composição do catálogo.
+final composicaoCatalogoInsumosProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>(
+  (ref, composicaoId) => ref
+      .watch(orcamentoComposicoesRepositoryProvider)
+      .listCatalogoInsumos(composicaoId),
+);
+
 /// Orçamento individual.
 final orcamentoProvider = FutureProvider.family<Orcamento?, String>(
   (ref, id) => ref.watch(sistemaRepositoryProvider).getOrcamento(id),

@@ -97,6 +97,86 @@ class OrcamentoComposicoesRepository {
     return rows.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
+  // ------------------------------------------- CRUD catálogo composições
+  Future<void> saveComposicao(Map<String, dynamic> data, {String? id}) async {
+    if (id != null) {
+      await _client.from('composicoes').update(data).eq('id', id);
+    } else {
+      await _client.from('composicoes').insert(data);
+    }
+  }
+
+  Future<void> deleteComposicaoCatalogo(String id) async {
+    await _client.from('composicoes_insumos').delete().eq('composicao_id', id);
+    await _client.from('composicoes').delete().eq('id', id);
+  }
+
+  Future<void> addComposicaoInsumo(
+    String composicaoId,
+    Map<String, dynamic> data,
+  ) async {
+    await _client
+        .from('composicoes_insumos')
+        .insert({'composicao_id': composicaoId, ...data});
+    await _recalcularCatalogo(composicaoId);
+  }
+
+  Future<void> updateComposicaoInsumo(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    final row = await _client
+        .from('composicoes_insumos')
+        .update(data)
+        .eq('id', id)
+        .select('composicao_id')
+        .single();
+    await _recalcularCatalogo(row['composicao_id'] as String);
+  }
+
+  Future<void> deleteComposicaoInsumo(String id) async {
+    final row = await _client
+        .from('composicoes_insumos')
+        .select('composicao_id')
+        .eq('id', id)
+        .maybeSingle();
+    await _client.from('composicoes_insumos').delete().eq('id', id);
+    if (row != null) {
+      await _recalcularCatalogo(row['composicao_id'] as String);
+    }
+  }
+
+  Future<void> _recalcularCatalogo(String composicaoId) async {
+    final rows = await _client
+        .from('composicoes_insumos')
+        .select('quantidade, insumos(preco)')
+        .eq('composicao_id', composicaoId);
+    var total = 0.0;
+    for (final r in rows) {
+      final ins = r['insumos'];
+      final preco = ins is Map ? ((ins['preco'] as num?)?.toDouble() ?? 0) : 0.0;
+      final qtd = (r['quantidade'] as num?)?.toDouble() ?? 0;
+      total += preco * qtd;
+    }
+    await _client
+        .from('composicoes')
+        .update({'custo_total': total})
+        .eq('id', composicaoId);
+  }
+
+  // ---------------------------------------------- CRUD catálogo insumos
+  Future<void> saveInsumo(Map<String, dynamic> data, {String? id}) async {
+    if (id != null) {
+      await _client.from('insumos').update(data).eq('id', id);
+    } else {
+      await _client.from('insumos').insert(data);
+    }
+  }
+
+  Future<void> deleteInsumoCatalogo(String id) async {
+    await _client.from('insumos').delete().eq('id', id);
+  }
+
   /// Adiciona uma composição do catálogo a uma etapa, copiando seus insumos
   /// como snapshot. Retorna o id da composição do orçamento.
   Future<String> addComposicaoFromCatalogo({

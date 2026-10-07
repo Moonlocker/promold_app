@@ -10,6 +10,7 @@ import '../../../models/sistema.dart';
 import '../../../providers/sistema_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import 'orcamento_detalhe_screen.dart';
+import 'orcamentos_catalogo_screen.dart';
 
 /// Módulo Orçamentos: listagem e cadastro.
 class OrcamentosScreen extends ConsumerStatefulWidget {
@@ -26,7 +27,20 @@ class _OrcamentosScreenState extends ConsumerState<OrcamentosScreen> {
   Widget build(BuildContext context) {
     final async = ref.watch(orcamentosListProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Orçamentos')),
+      appBar: AppBar(
+        title: const Text('Orçamentos'),
+        actions: [
+          IconButton(
+            tooltip: 'Composições e Insumos',
+            icon: const Icon(Icons.library_books_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const OrcamentosCatalogoScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: ref.podeCriar('orcamentos')
           ? FloatingActionButton.extended(
               onPressed: () => _novo(),

@@ -13,6 +13,7 @@ import '../../../providers/pecas_catalogo_providers.dart';
 import '../../../providers/sistema_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import '../../../services/orcamento_pdf_service.dart';
+import '../widgets/orcamento_anexos_card.dart';
 import 'orcamento_etapas_screen.dart';
 
 const _status = ['rascunho', 'enviado', 'aprovado', 'recusado', 'concluido'];
@@ -171,6 +172,8 @@ class OrcamentoDetalheScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              OrcamentoAnexosCard(orcamentoId: o.id),
+              const SizedBox(height: 16),
               if (ref.podeEditar('orcamentos'))
                 FilledButton.icon(
                   onPressed: () => _aprovarGerarObra(context, ref, o, itens),
@@ -222,6 +225,8 @@ class OrcamentoDetalheScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
+              OrcamentoAcessoLogCard(orcamentoId: o.id),
             ],
           );
         },

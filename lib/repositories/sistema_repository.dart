@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase/supabase_service.dart';
@@ -207,5 +209,71 @@ class SistemaRepository {
 
   Future<void> deleteOrcamento(String id) async {
     await _client.from('orcamentos').delete().eq('id', id);
+  }
+
+  // --------------------------------------------- Anexos do orçamento
+  Future<List<Map<String, dynamic>>> listOrcamentoAnexos(
+    String orcamentoId,
+  ) async {
+    final rows = await _client
+        .from('orcamentos_anexos')
+        .select()
+        .eq('orcamento_id', orcamentoId)
+        .order('created_at');
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> addOrcamentoAnexo(Map<String, dynamic> data) async {
+    await _client.from('orcamentos_anexos').insert(data);
+  }
+
+  Future<void> updateOrcamentoAnexo(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    await _client.from('orcamentos_anexos').update(data).eq('id', id);
+  }
+
+  Future<void> deleteOrcamentoAnexo(String id) async {
+    await _client.from('orcamentos_anexos').delete().eq('id', id);
+  }
+
+  Future<String> uploadOrcamentoAnexo({
+    required String orcamentoId,
+    required Uint8List bytes,
+    required String nomeArquivo,
+    String? contentType,
+  }) async {
+    final path =
+        '$orcamentoId/${DateTime.now().millisecondsSinceEpoch}-$nomeArquivo';
+    await _client.storage.from('orcamentos_anexos').uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(upsert: false, contentType: contentType),
+        );
+    return _client.storage.from('orcamentos_anexos').getPublicUrl(path);
+  }
+
+  /// Remove um arquivo do Storage a partir da URL pública.
+  Future<void> removeStorageByUrl(String bucket, String url) async {
+    final marker = '/storage/v1/object/public/$bucket/';
+    final index = url.indexOf(marker);
+    if (index < 0) return;
+    final path = url.substring(index + marker.length);
+    if (path.isEmpty) return;
+    await _client.storage.from(bucket).remove([path]);
+  }
+
+  // ------------------------------------------ Histórico de acessos
+  Future<List<Map<String, dynamic>>> listOrcamentoAcessoLog(
+    String orcamentoId,
+  ) async {
+    final rows = await _client
+        .from('orcamento_acesso_log')
+        .select()
+        .eq('orcamento_id', orcamentoId)
+        .order('created_at', ascending: false)
+        .limit(50);
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 }
