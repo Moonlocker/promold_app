@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/auth_providers.dart';
 
@@ -28,8 +29,33 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
   String _busca = '';
   String _status = 'todos';
   String _categoria = 'todos';
+  DateTime? _de;
+  DateTime? _ate;
 
   bool get _isPagar => widget.tipo == 'pagar';
+
+  List<ContaFinanceira> _filtrar(List<ContaFinanceira> contas) {
+    final s = _busca.toLowerCase();
+    return contas.where((c) {
+      if (_status != 'todos' && c.statusEfetivo != _status) return false;
+      if (_categoria != 'todos' && c.categoriaId != _categoria) return false;
+      if (_de != null || _ate != null) {
+        final v = DateTime.tryParse(c.dataVencimento);
+        if (v == null) return false;
+        if (_de != null &&
+            v.isBefore(DateTime(_de!.year, _de!.month, _de!.day))) {
+          return false;
+        }
+        if (_ate != null &&
+            v.isAfter(
+                DateTime(_ate!.year, _ate!.month, _ate!.day, 23, 59, 59))) {
+          return false;
+        }
+      }
+      return c.descricao.toLowerCase().contains(s) ||
+          (c.cliente ?? '').toLowerCase().contains(s);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +68,13 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isPagar ? 'Contas a Pagar' : 'Contas a Receber'),
+        actions: [
+          IconButton(
+            tooltip: 'Exportar CSV',
+            onPressed: _exportarCsv,
+            icon: const Icon(Icons.file_download_outlined),
+          ),
+        ],
       ),
       floatingActionButton: ref.podeCriar(
               _isPagar ? 'financeiro-contas-pagar' : 'financeiro-contas-receber')
@@ -59,15 +92,7 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
         error: (e, _) => Center(child: Text('Erro: $e')),
         data: (contas) {
           final totais = _calcularTotais(contas);
-          final filtradas = contas.where((c) {
-            if (_status != 'todos' && c.statusEfetivo != _status) return false;
-            if (_categoria != 'todos' && c.categoriaId != _categoria) {
-              return false;
-            }
-            final s = _busca.toLowerCase();
-            return c.descricao.toLowerCase().contains(s) ||
-                (c.cliente ?? '').toLowerCase().contains(s);
-          }).toList();
+          final filtradas = _filtrar(contas);
 
           return RefreshIndicator(
             onRefresh: () async => _invalidar(),
@@ -166,6 +191,41 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickDate(true),
+                        icon: const Icon(Icons.calendar_today, size: 15),
+                        label: Text(
+                          _de == null ? 'De' : Formatters.dataBr(_de),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _pickDate(false),
+                        icon: const Icon(Icons.event, size: 15),
+                        label: Text(
+                          _ate == null ? 'Até' : Formatters.dataBr(_ate),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    if (_de != null || _ate != null)
+                      IconButton(
+                        tooltip: 'Limpar período',
+                        onPressed: () => setState(() {
+                          _de = null;
+                          _ate = null;
+                        }),
+                        icon: const Icon(Icons.close, size: 18),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 if (filtradas.isEmpty)
                   const Padding(
@@ -193,6 +253,66 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
       ref.invalidate(contasPagarListProvider);
     } else {
       ref.invalidate(contasReceberListProvider);
+    }
+  }
+
+  Future<void> _pickDate(bool inicio) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: (inicio ? _de : _ate) ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (inicio) {
+        _de = picked;
+      } else {
+        _ate = picked;
+      }
+    });
+  }
+
+  Future<void> _exportarCsv() async {
+    final contas = (_isPagar
+                ? ref.read(contasPagarListProvider)
+                : ref.read(contasReceberListProvider))
+            .value ??
+        const <ContaFinanceira>[];
+    final filtradas = _filtrar(contas);
+    if (filtradas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nada para exportar')),
+      );
+      return;
+    }
+    final cats =
+        ref.read(categoriasFinanceirasListProvider).value ?? const [];
+    String esc(Object? v) {
+      final s = (v ?? '').toString().replaceAll('"', '""');
+      return '"$s"';
+    }
+
+    final sb = StringBuffer()
+      ..writeln(
+          'Descricao;Vencimento;Valor;Liquidado;Status;Categoria;Cliente');
+    for (final c in filtradas) {
+      final cat = cats.where((x) => x.id == c.categoriaId).firstOrNull?.nome;
+      sb.writeln([
+        esc(c.descricao),
+        esc(c.dataVencimento),
+        c.valor.toStringAsFixed(2).replaceAll('.', ','),
+        c.liquidado.toStringAsFixed(2).replaceAll('.', ','),
+        esc(c.statusEfetivo),
+        esc(cat),
+        esc(c.cliente),
+      ].join(';'));
+    }
+    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('CSV copiado (${filtradas.length} linha(s))')),
+      );
     }
   }
 

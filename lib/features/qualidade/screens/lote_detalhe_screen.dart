@@ -9,6 +9,7 @@ import '../../../models/qc.dart';
 import '../../../providers/qualidade_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import '../widgets/ensaio_form_sheet.dart';
+import '../widgets/lote_resultado.dart';
 import '../widgets/qualidade_badge.dart';
 
 /// Detalhe de um lote: corpos de prova e ensaios.
@@ -91,6 +92,13 @@ class LoteDetalheScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            LoteResultado(
+              lote: lote,
+              cps: cps,
+              ensaios: ensaios,
+              status: status,
             ),
             const SizedBox(height: 16),
             const Text('Corpos de prova',
