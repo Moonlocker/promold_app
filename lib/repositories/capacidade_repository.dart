@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/capacidade.dart';
 
@@ -11,10 +12,13 @@ class CapacidadeRepository {
   final SupabaseClient _client;
 
   Future<List<AreaProdutiva>> listAreas() async {
-    final rows = await _client.from('areas_produtivas').select().order('nome');
-    return rows
-        .map((e) => AreaProdutiva.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'capacidade:areas',
+      () async => List<Map<String, dynamic>>.from(
+        await _client.from('areas_produtivas').select().order('nome'),
+      ),
+    );
+    return rows.map((e) => AreaProdutiva.fromMap(e)).toList();
   }
 
   Future<void> createArea(Map<String, dynamic> data) async {
@@ -31,10 +35,13 @@ class CapacidadeRepository {
   }
 
   Future<List<CapacidadeFabrica>> listCapacidades() async {
-    final rows = await _client.from('capacidade_fabrica').select();
-    return rows
-        .map((e) => CapacidadeFabrica.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'capacidade:fabrica',
+      () async => List<Map<String, dynamic>>.from(
+        await _client.from('capacidade_fabrica').select(),
+      ),
+    );
+    return rows.map((e) => CapacidadeFabrica.fromMap(e)).toList();
   }
 
   Future<void> saveCapacidade({

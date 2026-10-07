@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/ausencia.dart';
 import '../models/cargo.dart';
@@ -17,13 +18,16 @@ class EquipeRepository {
 
   // ------------------------------------------------------------ Funcionários
   Future<List<Funcionario>> listFuncionarios() async {
-    final rows = await _client
-        .from('funcionarios')
-        .select('*, cargos(nome), setores(nome)')
-        .order('nome');
-    return rows
-        .map((e) => Funcionario.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'equipe:funcionarios',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('funcionarios')
+            .select('*, cargos(nome), setores(nome)')
+            .order('nome'),
+      ),
+    );
+    return rows.map((e) => Funcionario.fromMap(e)).toList();
   }
 
   Future<void> createFuncionario(Map<String, dynamic> data) async {

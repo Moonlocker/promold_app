@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/nota_fiscal.dart';
 
@@ -14,13 +15,16 @@ class FiscalRepository {
 
   // ------------------------------------------------------- Notas emitidas
   Future<List<NotaFiscal>> listNotas() async {
-    final rows = await _client
-        .from('notas_fiscais')
-        .select('*, clientes(nome, email, cpf_cnpj, telefone)')
-        .order('created_at', ascending: false);
-    return rows
-        .map((e) => NotaFiscal.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'fiscal:notas',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('notas_fiscais')
+            .select('*, clientes(nome, email, cpf_cnpj, telefone)')
+            .order('created_at', ascending: false),
+      ),
+    );
+    return rows.map((e) => NotaFiscal.fromMap(e)).toList();
   }
 
   Future<List<NotaFiscalItem>> listItens(String notaId) async {
@@ -86,13 +90,16 @@ class FiscalRepository {
 
   // ------------------------------------------------------ Notas recebidas
   Future<List<NotaFiscalRecebida>> listRecebidas() async {
-    final rows = await _client
-        .from('notas_fiscais_recebidas')
-        .select()
-        .order('data_emissao', ascending: false);
-    return rows
-        .map((e) => NotaFiscalRecebida.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'fiscal:recebidas',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from('notas_fiscais_recebidas')
+            .select()
+            .order('data_emissao', ascending: false),
+      ),
+    );
+    return rows.map((e) => NotaFiscalRecebida.fromMap(e)).toList();
   }
 
   Future<Map<String, dynamic>> sincronizarRecebidas() async {

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/cliente.dart';
 
@@ -11,8 +12,13 @@ class ClientesRepository {
   final SupabaseClient _client;
 
   Future<List<Cliente>> list() async {
-    final rows = await _client.from('clientes').select().order('nome');
-    return rows.map((e) => Cliente.fromMap(Map<String, dynamic>.from(e))).toList();
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'cadastros:clientes',
+      () async => List<Map<String, dynamic>>.from(
+        await _client.from('clientes').select().order('nome'),
+      ),
+    );
+    return rows.map((e) => Cliente.fromMap(e)).toList();
   }
 
   Future<void> create(Map<String, dynamic> data) async {

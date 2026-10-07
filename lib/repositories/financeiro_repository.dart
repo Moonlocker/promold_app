@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/offline/offline_database.dart';
 import '../core/supabase/supabase_service.dart';
 import '../models/conta_financeira.dart';
 
@@ -22,13 +23,17 @@ class FinanceiroRepository {
 
   // ------------------------------------------------------------------- Contas
   Future<List<ContaFinanceira>> listContas(String tipo) async {
-    final rows = await _client
-        .from(_tabela(tipo))
-        .select()
-        .order('data_vencimento', ascending: true);
+    final rows = await OfflineDatabase.instance.cachedRows(
+      'financeiro:contas:$tipo',
+      () async => List<Map<String, dynamic>>.from(
+        await _client
+            .from(_tabela(tipo))
+            .select()
+            .order('data_vencimento', ascending: true),
+      ),
+    );
     return rows
-        .map((e) =>
-            ContaFinanceira.fromMap(Map<String, dynamic>.from(e), tipo))
+        .map((e) => ContaFinanceira.fromMap(e, tipo))
         .toList();
   }
 

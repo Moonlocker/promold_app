@@ -6,6 +6,15 @@ import 'package:sqflite/sqflite.dart';
 import 'connectivity.dart';
 import 'pending_mutation.dart';
 
+/// Erro lançado quando não há internet e não há dado em cache local.
+class OfflineException implements Exception {
+  const OfflineException();
+
+  @override
+  String toString() =>
+      'Sem conexão com a internet e nenhum dado salvo localmente.';
+}
+
 /// Banco local (SQLite) com duas responsabilidades:
 ///
 /// 1. **cache** de leitura — permite abrir telas e consultar dados já vistos
@@ -20,6 +29,9 @@ class OfflineDatabase {
 
   Database? _db;
   bool get isReady => _db != null;
+
+  /// Limite de espera pela resposta remota antes de recorrer ao cache local.
+  static const Duration _remoteTimeout = Duration(seconds: 8);
 
   Future<void> init() async {
     if (_db != null) return;
@@ -119,9 +131,11 @@ class OfflineDatabase {
     if (db != null && !AppConnectivity.instance.isOnline) {
       final cached = await readCache(key);
       if (cached is List) return _asRows(cached);
+      throw const OfflineException();
     }
     try {
-      final data = await remote();
+      final data = await remote().timeout(_remoteTimeout);
+      AppConnectivity.instance.reportOnline(true);
       if (db != null) {
         try {
           await writeCache(key, data);
@@ -129,6 +143,7 @@ class OfflineDatabase {
       }
       return data;
     } catch (_) {
+      AppConnectivity.instance.reportOnline(false);
       if (db != null) {
         final cached = await readCache(key);
         if (cached is List) return _asRows(cached);
@@ -146,9 +161,11 @@ class OfflineDatabase {
     if (db != null && !AppConnectivity.instance.isOnline) {
       final cached = await readCache(key);
       if (cached is Map) return Map<String, dynamic>.from(cached);
+      throw const OfflineException();
     }
     try {
-      final data = await remote();
+      final data = await remote().timeout(_remoteTimeout);
+      AppConnectivity.instance.reportOnline(true);
       if (db != null && data != null) {
         try {
           await writeCache(key, data);
@@ -156,6 +173,7 @@ class OfflineDatabase {
       }
       return data;
     } catch (_) {
+      AppConnectivity.instance.reportOnline(false);
       if (db != null) {
         final cached = await readCache(key);
         if (cached is Map) return Map<String, dynamic>.from(cached);
