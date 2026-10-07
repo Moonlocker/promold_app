@@ -53,6 +53,22 @@ class SistemaRepository {
     await _client.from('support_tickets').update(data).eq('id', id);
   }
 
+  Future<void> deleteTicket(String id) async {
+    final anexos = await _client
+        .from('support_ticket_anexos')
+        .select('url')
+        .eq('ticket_id', id);
+    for (final a in anexos) {
+      final url = a['url'] as String?;
+      if (url != null && url.isNotEmpty) {
+        await removeStorageByUrl('obras-anexos', url);
+      }
+    }
+    await _client.from('support_ticket_anexos').delete().eq('ticket_id', id);
+    await _client.from('support_ticket_messages').delete().eq('ticket_id', id);
+    await _client.from('support_tickets').delete().eq('id', id);
+  }
+
   Future<List<SupportMessage>> listMessages(String ticketId) async {
     final rows = await _client
         .from('support_ticket_messages')

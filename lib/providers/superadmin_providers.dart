@@ -56,3 +56,9 @@ final featureFlagOverridesProvider =
       .watch(superAdminRepositoryProvider)
       .listFeatureFlagOverrides(flagId),
 );
+
+/// Faturas SaaS vencidas (inadimplência).
+final faturasVencidasProvider =
+    FutureProvider<List<Map<String, dynamic>>>(
+  (ref) => ref.watch(superAdminRepositoryProvider).listFaturasVencidas(),
+);

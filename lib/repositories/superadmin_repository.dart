@@ -221,4 +221,57 @@ class SuperAdminRepository {
       }, onConflict: 'organizacao_id,feature_flag_id');
     }
   }
+
+  // -------------------------------------------------------- Inadimplência
+  Future<List<Map<String, dynamic>>> listFaturasVencidas() async {
+    final hoje = DateTime.now();
+    final iso = '${hoje.year.toString().padLeft(4, '0')}-'
+        '${hoje.month.toString().padLeft(2, '0')}-'
+        '${hoje.day.toString().padLeft(2, '0')}';
+    final rows = await _client
+        .from('faturas_saas')
+        .select()
+        .neq('status', 'paga')
+        .neq('status', 'cancelada')
+        .lt('data_vencimento', iso)
+        .order('data_vencimento');
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> marcarFaturasPagas(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final hoje = DateTime.now().toIso8601String();
+    await _client.from('faturas_saas').update({
+      'status': 'paga',
+      'data_pagamento': hoje,
+      'metodo_pagamento': 'manual',
+    }).inFilter('id', ids);
+  }
+
+  Future<void> suspenderOrganizacoes(List<String> orgIds, String motivo) async {
+    if (orgIds.isEmpty) return;
+    await _client.from('organizacoes').update({
+      'ativo': false,
+      'bloqueio_tipo': 'pagamento_pendente',
+      'bloqueio_motivo': motivo,
+    }).inFilter('id', orgIds);
+  }
+
+  Future<void> criarNotificacaoOrg({
+    required String organizacaoId,
+    required String titulo,
+    required String descricao,
+    String tipo = 'financeiro',
+  }) async {
+    try {
+      await _client.rpc('criar_notificacao_org', params: {
+        '_org_id': organizacaoId,
+        '_titulo': titulo,
+        '_descricao': descricao,
+        '_tipo': tipo,
+      });
+    } catch (_) {
+      // RPC pode não existir; ignora silenciosamente.
+    }
+  }
 }
