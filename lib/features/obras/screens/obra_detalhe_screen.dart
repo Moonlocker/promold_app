@@ -23,6 +23,7 @@ import '../tabs/obra_planejamento_tab.dart';
 import '../tabs/obra_visao_geral_tab.dart';
 import '../tabs/obra_visual_tab.dart';
 import '../widgets/obra_form_sheet.dart';
+import '../widgets/resumo_obra_sheet.dart';
 
 /// Tela de detalhe da obra, com as abas do sistema web.
 class ObraDetalheScreen extends ConsumerStatefulWidget {
@@ -86,6 +87,7 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
               PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'monitorar') _monitorar(obra);
+                  if (v == 'resumo') _resumo(obra);
                   if (v == 'relatorio') _relatorio(obra);
                   if (v == 'editar') _editar(obra);
                   if (v == 'excluir') _excluir(obra);
@@ -96,6 +98,14 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
                     child: ListTile(
                       leading: Icon(Icons.notifications_outlined),
                       title: Text('Monitorar'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'resumo',
+                    child: ListTile(
+                      leading: Icon(Icons.summarize_outlined),
+                      title: Text('Resumo da obra'),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
@@ -180,6 +190,19 @@ class _ObraDetalheScreenState extends ConsumerState<ObraDetalheScreen>
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
+      }
+    }
+  }
+
+  Future<void> _resumo(Obra obra) async {
+    try {
+      final pecas = await ref.read(obrasPecasProvider(obra.id).future);
+      if (!mounted) return;
+      await showResumoObraSheet(context, obra: obra, pecas: pecas);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro: $e')));
       }
     }
   }

@@ -11,6 +11,7 @@ import '../../../models/obra_peca.dart';
 import '../../../providers/obra_providers.dart';
 import '../../../providers/supabase_providers.dart';
 import '../widgets/add_pecas_sheet.dart';
+import '../widgets/etiqueta_config_sheet.dart';
 import '../widgets/obra_peca_edit_sheet.dart';
 import '../../../services/etiquetas_service.dart';
 
@@ -30,6 +31,7 @@ class _ObraPecasTabState extends ConsumerState<ObraPecasTab> {
   bool _ocultarConcluidas = false;
   final Set<String> _selecionadas = {};
   final Set<String> _fechadas = {};
+  EtiquetaConfig _etiquetaConfig = EtiquetaConfig();
 
   @override
   void dispose() {
@@ -389,6 +391,11 @@ class _ObraPecasTabState extends ConsumerState<ObraPecasTab> {
                 onPressed: _bulkEditarCampo,
               ),
               IconButton(
+                tooltip: 'Configurar etiqueta',
+                icon: const Icon(Icons.tune, color: Colors.white),
+                onPressed: _configurarEtiqueta,
+              ),
+              IconButton(
                 tooltip: 'Etiquetas QR',
                 icon: const Icon(Icons.qr_code, color: Colors.white),
                 onPressed: _bulkEtiquetas,
@@ -601,6 +608,7 @@ class _ObraPecasTabState extends ConsumerState<ObraPecasTab> {
       obraNome: obraNome,
       pecas: pecas,
       posicoes: posicoes,
+      config: _etiquetaConfig,
     );
   }
 
@@ -613,7 +621,16 @@ class _ObraPecasTabState extends ConsumerState<ObraPecasTab> {
       obraNome: obraNome,
       pecas: [peca],
       posicoes: posicoes,
+      config: _etiquetaConfig,
     );
+  }
+
+  Future<void> _configurarEtiqueta() async {
+    final cfg = await showEtiquetaConfigSheet(
+      context,
+      config: _etiquetaConfig,
+    );
+    if (cfg != null) setState(() => _etiquetaConfig = cfg);
   }
 
   Future<void> _bulkExcluir() async {
