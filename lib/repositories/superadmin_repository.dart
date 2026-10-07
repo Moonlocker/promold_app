@@ -429,6 +429,24 @@ class SuperAdminRepository {
     return _client.storage.from('faturas-saas').getPublicUrl(path);
   }
 
+  // ------------------------------------------------ Landing page (singleton)
+  Future<Map<String, dynamic>> getLandingContent() async {
+    final row = await _client
+        .from('landing_page_config')
+        .select('content')
+        .eq('id', 'singleton')
+        .maybeSingle();
+    final content = row?['content'];
+    return content is Map ? Map<String, dynamic>.from(content) : {};
+  }
+
+  Future<void> saveLandingContent(Map<String, dynamic> content) async {
+    await _client.from('landing_page_config').upsert(
+      {'id': 'singleton', 'content': content},
+      onConflict: 'id',
+    );
+  }
+
   // -------------------------------------------------------------- Backup
   Future<Map<String, dynamic>> backupManifest(String orgId) async {
     final res = await _client.functions.invoke(

@@ -11,8 +11,10 @@ import '../widgets/superadmin_config_globais_tab.dart';
 import '../widgets/superadmin_faturamento_tab.dart';
 import '../widgets/superadmin_flags_tab.dart';
 import '../widgets/superadmin_inadimplencia_tab.dart';
+import '../widgets/superadmin_landing_tab.dart';
 import '../widgets/superadmin_modulos_tab.dart';
 import '../widgets/superadmin_planos_tab.dart';
+import '../widgets/superadmin_saude_tab.dart';
 import '../widgets/superadmin_suporte_tab.dart';
 import '../widgets/superadmin_usuarios_tab.dart';
 
@@ -23,7 +25,7 @@ class SuperAdminScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 12,
+      length: 14,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('SuperAdmin'),
@@ -32,6 +34,7 @@ class SuperAdminScreen extends StatelessWidget {
             tabAlignment: TabAlignment.start,
             tabs: [
               Tab(text: 'Executivo'),
+              Tab(text: 'Saúde'),
               Tab(text: 'Organizações'),
               Tab(text: 'Usuários'),
               Tab(text: 'Módulos & Páginas'),
@@ -41,6 +44,7 @@ class SuperAdminScreen extends StatelessWidget {
               Tab(text: 'Suporte'),
               Tab(text: 'Inadimplência'),
               Tab(text: 'Config. Globais'),
+              Tab(text: 'Landing'),
               Tab(text: 'Backup'),
               Tab(text: 'Auditoria'),
             ],
@@ -49,6 +53,7 @@ class SuperAdminScreen extends StatelessWidget {
         body: const TabBarView(
           children: [
             _ExecutivoTab(),
+            SuperAdminSaudeTab(),
             _OrganizacoesTab(),
             SuperAdminUsuariosTab(),
             SuperAdminModulosTab(),
@@ -58,6 +63,7 @@ class SuperAdminScreen extends StatelessWidget {
             SuperAdminSuporteTab(),
             SuperAdminInadimplenciaTab(),
             SuperAdminConfigGlobaisTab(),
+            SuperAdminLandingTab(),
             SuperAdminBackupTab(),
             _AuditoriaTab(),
           ],

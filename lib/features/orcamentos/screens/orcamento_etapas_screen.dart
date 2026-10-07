@@ -55,19 +55,43 @@ class OrcamentoEtapasScreen extends ConsumerWidget {
                 ref.invalidate(orcamentoEtapasProvider(orcamento.id)),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-              children: etapas
-                  .map((e) => _EtapaCard(
-                        orcamento: orcamento,
-                        etapa: e,
-                        onChanged: () => ref
-                            .invalidate(orcamentoEtapasProvider(orcamento.id)),
-                      ))
-                  .toList(),
+              children: [
+                for (var i = 0; i < etapas.length; i++)
+                  _EtapaCard(
+                    orcamento: orcamento,
+                    etapa: etapas[i],
+                    onUp: i > 0
+                        ? () => _moverEtapa(context, ref, etapas, i, -1)
+                        : null,
+                    onDown: i < etapas.length - 1
+                        ? () => _moverEtapa(context, ref, etapas, i, 1)
+                        : null,
+                    onChanged: () => ref
+                        .invalidate(orcamentoEtapasProvider(orcamento.id)),
+                  ),
+              ],
             ),
           );
         },
       ),
     );
+  }
+
+  Future<void> _moverEtapa(
+    BuildContext context,
+    WidgetRef ref,
+    List<Map<String, dynamic>> etapas,
+    int index,
+    int delta,
+  ) async {
+    final ids = etapas.map((e) => e['id'] as String).toList();
+    final alvo = index + delta;
+    if (alvo < 0 || alvo >= ids.length) return;
+    final tmp = ids[index];
+    ids[index] = ids[alvo];
+    ids[alvo] = tmp;
+    await ref.read(orcamentoComposicoesRepositoryProvider).reorderEtapas(ids);
+    ref.invalidate(orcamentoEtapasProvider(orcamento.id));
   }
 
   Future<void> _novaEtapa(BuildContext context, WidgetRef ref) async {
@@ -110,11 +134,15 @@ class _EtapaCard extends ConsumerWidget {
     required this.orcamento,
     required this.etapa,
     required this.onChanged,
+    this.onUp,
+    this.onDown,
   });
 
   final Orcamento orcamento;
   final Map<String, dynamic> etapa;
   final VoidCallback onChanged;
+  final VoidCallback? onUp;
+  final VoidCallback? onDown;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -142,6 +170,18 @@ class _EtapaCard extends ConsumerWidget {
                   tooltip: 'Adicionar composição',
                   icon: const Icon(Icons.add, size: 20),
                   onPressed: () => _addComposicao(context, ref, etapaId),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.swap_vert, size: 20),
+                  onSelected: (v) {
+                    if (v == 'up') onUp?.call();
+                    if (v == 'down') onDown?.call();
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'up', child: Text('Mover para cima')),
+                    PopupMenuItem(
+                        value: 'down', child: Text('Mover para baixo')),
+                  ],
                 ),
                 IconButton(
                   tooltip: 'Excluir etapa',
@@ -200,11 +240,18 @@ class _EtapaCard extends ConsumerWidget {
                 );
                 return Column(
                   children: [
-                    ...comps.map((c) => _ComposicaoLinha(
-                          orcamento: orcamento,
-                          composicao: c,
-                          onChanged: onChanged,
-                        )),
+                    for (var i = 0; i < comps.length; i++)
+                      _ComposicaoLinha(
+                        orcamento: orcamento,
+                        composicao: comps[i],
+                        onChanged: onChanged,
+                        onUp: i > 0
+                            ? () => _moverComposicao(ref, comps, i, -1)
+                            : null,
+                        onDown: i < comps.length - 1
+                            ? () => _moverComposicao(ref, comps, i, 1)
+                            : null,
+                      ),
                     const Divider(),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -225,6 +272,24 @@ class _EtapaCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _moverComposicao(
+    WidgetRef ref,
+    List<Map<String, dynamic>> comps,
+    int index,
+    int delta,
+  ) async {
+    final ids = comps.map((c) => c['id'] as String).toList();
+    final alvo = index + delta;
+    if (alvo < 0 || alvo >= ids.length) return;
+    final tmp = ids[index];
+    ids[index] = ids[alvo];
+    ids[alvo] = tmp;
+    await ref
+        .read(orcamentoComposicoesRepositoryProvider)
+        .reorderComposicoes(ids);
+    onChanged();
   }
 
   Future<void> _addComposicao(
@@ -319,11 +384,15 @@ class _ComposicaoLinha extends ConsumerWidget {
     required this.orcamento,
     required this.composicao,
     required this.onChanged,
+    this.onUp,
+    this.onDown,
   });
 
   final Orcamento orcamento;
   final Map<String, dynamic> composicao;
   final VoidCallback onChanged;
+  final VoidCallback? onUp;
+  final VoidCallback? onDown;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -345,6 +414,16 @@ class _ComposicaoLinha extends ConsumerWidget {
         children: [
           Text(Formatters.moeda(total),
               style: const TextStyle(fontWeight: FontWeight.w600)),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.keyboard_arrow_up, size: 18),
+            onPressed: onUp,
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+            onPressed: onDown,
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline,
                 size: 18, color: AppColors.destructive),

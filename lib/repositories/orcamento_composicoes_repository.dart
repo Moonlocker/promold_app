@@ -31,6 +31,24 @@ class OrcamentoComposicoesRepository {
     await _client.from('orcamentos_etapas').update({'nome': nome}).eq('id', id);
   }
 
+  /// Persiste a nova ordem das etapas (índice 1-based).
+  Future<void> reorderEtapas(List<String> orderedIds) async {
+    for (var i = 0; i < orderedIds.length; i++) {
+      await _client
+          .from('orcamentos_etapas')
+          .update({'ordem': i + 1}).eq('id', orderedIds[i]);
+    }
+  }
+
+  /// Persiste a nova ordem das composições de uma etapa (índice 1-based).
+  Future<void> reorderComposicoes(List<String> orderedIds) async {
+    for (var i = 0; i < orderedIds.length; i++) {
+      await _client
+          .from('orcamentos_composicoes')
+          .update({'ordem': i + 1}).eq('id', orderedIds[i]);
+    }
+  }
+
   Future<void> deleteEtapa(String id) async {
     final composicoes = await _client
         .from('orcamentos_composicoes')

@@ -99,3 +99,8 @@ final faturasMesProvider =
   (ref, key) =>
       ref.watch(superAdminRepositoryProvider).listFaturas(key.$1, key.$2),
 );
+
+/// Conteúdo da Landing Page (registro singleton).
+final landingContentProvider = FutureProvider<Map<String, dynamic>>(
+  (ref) => ref.watch(superAdminRepositoryProvider).getLandingContent(),
+);
