@@ -4,6 +4,7 @@ import '../core/logic/painel_calc.dart';
 import '../core/utils/formatters.dart';
 import '../models/planejamento.dart';
 import 'auth_providers.dart';
+import 'capacidade_providers.dart';
 import 'obra_providers.dart';
 import 'supabase_providers.dart';
 
@@ -45,6 +46,45 @@ final planejamentoSemanaProvider =
       PlanejamentoSemanaNotifier.new,
     );
 
+/// Modo de exibição do planejamento: `semanal` ou `mensal`.
+class PlanejamentoViewModeNotifier extends Notifier<String> {
+  @override
+  String build() => 'semanal';
+
+  void set(String value) => state = value;
+}
+
+final planejamentoViewModeProvider =
+    NotifierProvider<PlanejamentoViewModeNotifier, String>(
+      PlanejamentoViewModeNotifier.new,
+    );
+
+/// Mês selecionado na visão mensal (normalizado para o dia 1º).
+class PlanejamentoMesNotifier extends Notifier<DateTime> {
+  @override
+  DateTime build() {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, 1);
+  }
+
+  void anterior() => state = DateTime(state.year, state.month - 1, 1);
+  void proxima() => state = DateTime(state.year, state.month + 1, 1);
+  void irPara(DateTime d) => state = DateTime(d.year, d.month, 1);
+}
+
+final planejamentoMesProvider =
+    NotifierProvider<PlanejamentoMesNotifier, DateTime>(
+      PlanejamentoMesNotifier.new,
+    );
+
+/// Capacidade diária total da fábrica (soma das capacidades ativas, em peças).
+final capacidadeDiariaTotalProvider = FutureProvider<double>((ref) async {
+  final caps = await ref.watch(capacidadesFabricaProvider.future);
+  return caps
+      .where((c) => c.ativa)
+      .fold<double>(0, (a, c) => a + c.capacidadeDiaria);
+});
+
 /// Dia selecionado na semana.
 class PlanejamentoDiaNotifier extends Notifier<DateTime> {
   @override
@@ -72,12 +112,31 @@ final planejamentoDadosProvider = FutureProvider<PlanejamentoDados>((
   if (tipo == 'montagem') return PlanejamentoDados.empty;
   final isArmacao = tipo == 'armacao';
 
-  final semana = ref.watch(planejamentoSemanaProvider);
-  final fim = semana.add(const Duration(days: 6));
+  final viewMode = ref.watch(planejamentoViewModeProvider);
   final repo = ref.watch(producaoRepositoryProvider);
 
+  final DateTime inicio;
+  final DateTime fim;
+  final List<DateTime> listaDias;
+  if (viewMode == 'mensal') {
+    final mes = ref.watch(planejamentoMesProvider);
+    final primeiro = DateTime(mes.year, mes.month, 1);
+    final ultimo = DateTime(mes.year, mes.month + 1, 0);
+    inicio = primeiro.subtract(Duration(days: primeiro.weekday % 7));
+    fim = ultimo.add(Duration(days: 6 - (ultimo.weekday % 7)));
+    listaDias = [
+      for (var d = inicio; !d.isAfter(fim); d = d.add(const Duration(days: 1)))
+        d,
+    ];
+  } else {
+    final semana = ref.watch(planejamentoSemanaProvider);
+    inicio = semana;
+    fim = semana.add(const Duration(days: 6));
+    listaDias = [for (var i = 0; i < 7; i++) semana.add(Duration(days: i))];
+  }
+
   final planejamentos = await repo.listPlanejamento(
-    Formatters.iso(semana),
+    Formatters.iso(inicio),
     Formatters.iso(fim),
     tipo: tipo,
   );
@@ -96,8 +155,7 @@ final planejamentoDadosProvider = FutureProvider<PlanejamentoDados>((
   final catalogoPorId = {for (final c in catalogo) c.id: c};
 
   final dias = <PlanejamentoDia>[];
-  for (var i = 0; i < 7; i++) {
-    final dia = semana.add(Duration(days: i));
+  for (final dia in listaDias) {
     final diaStr = Formatters.iso(dia);
     var total = 0;
     var concluidos = 0;
@@ -120,38 +178,46 @@ final planejamentoDadosProvider = FutureProvider<PlanejamentoDados>((
     );
   }
 
-  final selecionado = ref.watch(planejamentoDiaProvider);
-  final selStr = Formatters.iso(selecionado);
-  final itens = <PlanejamentoItem>[];
+  final itensPorDia = <String, List<PlanejamentoItem>>{};
   for (final p in planejamentos) {
-    if (p.dataInicio.compareTo(selStr) > 0 || p.dataFim.compareTo(selStr) < 0) {
-      continue;
-    }
     final piece = p.obraPecaId != null ? pecasPorId[p.obraPecaId] : null;
     final peca = p.pecaCatalogoId != null
         ? catalogoPorId[p.pecaCatalogoId]
         : null;
     final obra = p.obraId != null ? obrasPorId[p.obraId] : null;
-    itens.add(
-      PlanejamentoItem(
-        planId: p.id,
-        obraId: p.obraId ?? '',
-        obraNome: obra?.nome ?? 'Obra',
-        obraCor: obra?.cor,
-        obraPecaId: p.obraPecaId,
-        pecaNome: peca?.nome ?? piece?.pecaCatalogo?.nome ?? 'Peça',
-        identificador: piece?.identificador.isNotEmpty == true
-            ? piece!.identificador
-            : (p.obraPecaId != null
-                  ? '#${p.obraPecaId!.substring(0, 8)}'
-                  : 'Sem ID'),
-        status: piece?.status ?? 'pendente',
-        concluido: isRealizadoStatus(piece?.status, isArmacao),
-      ),
+    final item = PlanejamentoItem(
+      planId: p.id,
+      obraId: p.obraId ?? '',
+      obraNome: obra?.nome ?? 'Obra',
+      obraCor: obra?.cor,
+      obraPecaId: p.obraPecaId,
+      pecaNome: peca?.nome ?? piece?.pecaCatalogo?.nome ?? 'Peça',
+      identificador: piece?.identificador.isNotEmpty == true
+          ? piece!.identificador
+          : (p.obraPecaId != null
+                ? '#${p.obraPecaId!.substring(0, 8)}'
+                : 'Sem ID'),
+      status: piece?.status ?? 'pendente',
+      concluido: isRealizadoStatus(piece?.status, isArmacao),
     );
+    for (final dia in listaDias) {
+      final diaStr = Formatters.iso(dia);
+      if (p.dataInicio.compareTo(diaStr) <= 0 &&
+          p.dataFim.compareTo(diaStr) >= 0) {
+        (itensPorDia[diaStr] ??= []).add(item);
+      }
+    }
   }
 
-  return PlanejamentoDados(dias: dias, itensDoDia: itens);
+  final selecionado = ref.watch(planejamentoDiaProvider);
+  final selStr = Formatters.iso(selecionado);
+  final itens = itensPorDia[selStr] ?? <PlanejamentoItem>[];
+
+  return PlanejamentoDados(
+    dias: dias,
+    itensDoDia: itens,
+    itensPorDia: itensPorDia,
+  );
 });
 
 /// Planejamento de montagem da semana selecionada.

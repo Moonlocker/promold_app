@@ -61,6 +61,12 @@ class Formatters {
     return '${d.day} de ${_meses[d.month - 1]} de ${d.year}';
   }
 
+  /// Nome do mês por extenso e ano, ex.: `Outubro de 2026`.
+  static String mesAno(DateTime d) {
+    final nome = _meses[d.month - 1];
+    return '${nome[0].toUpperCase()}${nome.substring(1)} de ${d.year}';
+  }
+
   /// Formata bytes (porte de `formatFileSize`).
   static String arquivoTamanho(int? bytes) {
     if (bytes == null || bytes <= 0) return '-';

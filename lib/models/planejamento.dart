@@ -42,10 +42,17 @@ class PlanejamentoDia {
 }
 
 class PlanejamentoDados {
-  const PlanejamentoDados({required this.dias, required this.itensDoDia});
+  const PlanejamentoDados({
+    required this.dias,
+    required this.itensDoDia,
+    this.itensPorDia = const {},
+  });
 
   final List<PlanejamentoDia> dias;
   final List<PlanejamentoItem> itensDoDia;
+
+  /// Itens planejados agrupados por data (`yyyy-MM-dd`).
+  final Map<String, List<PlanejamentoItem>> itensPorDia;
 
   static const empty = PlanejamentoDados(
     dias: <PlanejamentoDia>[],

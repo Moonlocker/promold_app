@@ -181,6 +181,61 @@ class ProducaoRepository {
     await _client.from('planejamento_semanal').insert(novo);
   }
 
+  /// Move todos os planejamentos de uma obra de um dia para outro.
+  ///
+  /// Duplicatas (mesma peça já planejada no dia de destino) são removidas da
+  /// origem. Retorna a quantidade de planejamentos efetivamente movidos.
+  Future<int> moverObraDia({
+    required String obraId,
+    required String fromDate,
+    required String toDate,
+    required String tipo,
+  }) async {
+    if (obraId.isEmpty || fromDate == toDate) return 0;
+    final source = await _client
+        .from('planejamento_semanal')
+        .select('id, obra_peca_id')
+        .eq('obra_id', obraId)
+        .eq('data_inicio', fromDate)
+        .eq('tipo', tipo);
+    if (source.isEmpty) return 0;
+    final target = await _client
+        .from('planejamento_semanal')
+        .select('obra_peca_id')
+        .eq('obra_id', obraId)
+        .eq('data_inicio', toDate)
+        .eq('tipo', tipo);
+    final targetIds = target
+        .map((e) => e['obra_peca_id'])
+        .whereType<String>()
+        .toSet();
+
+    final paraRemover = <String>[];
+    final paraMover = <String>[];
+    for (final p in source) {
+      final pecaId = p['obra_peca_id'] as String?;
+      final id = p['id'] as String;
+      if (pecaId != null && targetIds.contains(pecaId)) {
+        paraRemover.add(id);
+      } else {
+        paraMover.add(id);
+      }
+    }
+    if (paraRemover.isNotEmpty) {
+      await _client
+          .from('planejamento_semanal')
+          .delete()
+          .inFilter('id', paraRemover);
+    }
+    if (paraMover.isNotEmpty) {
+      await _client.from('planejamento_semanal').update({
+        'data_inicio': toDate,
+        'data_fim': toDate,
+      }).inFilter('id', paraMover);
+    }
+    return paraMover.length;
+  }
+
   /// Remove todos os planejamentos do tipo no período. Retorna o total removido.
   Future<int> limparPeriodo(
     String inicio,

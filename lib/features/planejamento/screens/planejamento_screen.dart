@@ -14,6 +14,7 @@ import '../../../providers/auth_providers.dart';
 import '../../../providers/obra_providers.dart';
 import '../../../providers/planejamento_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../../../services/planejamento_semanal_pdf_service.dart';
 import '../../obras/widgets/obra_peca_edit_sheet.dart';
 import '../widgets/gerenciar_feriados_sheet.dart';
 import '../widgets/planejar_sheet.dart';
@@ -27,6 +28,7 @@ class PlanejamentoScreen extends ConsumerWidget {
     final tipo = ref.watch(planejamentoTipoProvider);
     final isMontagem = tipo == 'montagem';
     final dia = ref.watch(planejamentoDiaProvider);
+    final modo = ref.watch(planejamentoViewModeProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -37,6 +39,12 @@ class PlanejamentoScreen extends ConsumerWidget {
             icon: const Icon(Icons.event_busy_outlined),
             onPressed: () => showGerenciarFeriadosSheet(context),
           ),
+          if (!isMontagem)
+            IconButton(
+              tooltip: 'Exportar PDF',
+              icon: const Icon(Icons.picture_as_pdf),
+              onPressed: () => _exportarPdf(context, ref, tipo),
+            ),
           if (!isMontagem)
             IconButton(
               tooltip: 'Adicionar ao planejamento',
@@ -75,6 +83,15 @@ class PlanejamentoScreen extends ConsumerWidget {
                   ref.read(planejamentoTipoProvider.notifier).set(v),
             ),
           ),
+          if (!isMontagem)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: _ViewToggle(
+                modo: modo,
+                onChange: (v) =>
+                    ref.read(planejamentoViewModeProvider.notifier).set(v),
+              ),
+            ),
           const _SemanaNav(),
           Expanded(
             child: isMontagem ? const _MontagemList() : const _SemanaView(),
@@ -82,6 +99,37 @@ class PlanejamentoScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _exportarPdf(
+    BuildContext context,
+    WidgetRef ref,
+    String tipo,
+  ) async {
+    final dados = ref.read(planejamentoDadosProvider).value;
+    if (dados == null) return;
+    final modo = ref.read(planejamentoViewModeProvider);
+    final String periodo;
+    if (modo == 'mensal') {
+      periodo = Formatters.mesAno(ref.read(planejamentoMesProvider));
+    } else {
+      final semana = ref.read(planejamentoSemanaProvider);
+      periodo = '${Formatters.dataBr(semana)} a '
+          '${Formatters.dataBr(semana.add(const Duration(days: 6)))}';
+    }
+    try {
+      await PlanejamentoSemanalPdfService.gerar(
+        tipo: tipo,
+        periodLabel: periodo,
+        dados: dados,
+        organizacaoNome: ref.usuario?.organizacao?.nome,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
+      }
+    }
   }
 
   Future<void> _adicionar(
@@ -253,6 +301,37 @@ class _SemanaNav extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final modo = ref.watch(planejamentoViewModeProvider);
+    if (modo == 'mensal') {
+      final mes = ref.watch(planejamentoMesProvider);
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: () =>
+                  ref.read(planejamentoMesProvider.notifier).anterior(),
+              icon: const Icon(Icons.chevron_left),
+              tooltip: 'Mês anterior',
+            ),
+            Expanded(
+              child: Text(
+                Formatters.mesAno(mes),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+            IconButton(
+              onPressed: () =>
+                  ref.read(planejamentoMesProvider.notifier).proxima(),
+              icon: const Icon(Icons.chevron_right),
+              tooltip: 'Próximo mês',
+            ),
+          ],
+        ),
+      );
+    }
     final semana = ref.watch(planejamentoSemanaProvider);
     final fim = semana.add(const Duration(days: 6));
     return Padding(
@@ -285,6 +364,40 @@ class _SemanaNav extends ConsumerWidget {
   }
 }
 
+class _ViewToggle extends StatelessWidget {
+  const _ViewToggle({required this.modo, required this.onChange});
+
+  final String modo;
+  final ValueChanged<String> onChange;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: SegmentedButton<String>(
+        showSelectedIcon: false,
+        style: const ButtonStyle(
+          visualDensity: VisualDensity.compact,
+        ),
+        segments: const [
+          ButtonSegment(
+            value: 'semanal',
+            label: Text('Semana', style: TextStyle(fontSize: 12)),
+            icon: Icon(Icons.view_week_outlined, size: 15),
+          ),
+          ButtonSegment(
+            value: 'mensal',
+            label: Text('Mês', style: TextStyle(fontSize: 12)),
+            icon: Icon(Icons.calendar_month_outlined, size: 15),
+          ),
+        ],
+        selected: {modo},
+        onSelectionChanged: (s) => onChange(s.first),
+      ),
+    );
+  }
+}
+
 class _SemanaView extends ConsumerWidget {
   const _SemanaView();
 
@@ -299,7 +412,10 @@ class _SemanaView extends ConsumerWidget {
       ),
       data: (dados) => Column(
         children: [
-          _DiaStrip(dias: dados.dias),
+          if (ref.watch(planejamentoViewModeProvider) == 'mensal')
+            _MesGrid(dias: dados.dias)
+          else
+            _DiaStrip(dias: dados.dias),
           const Divider(height: 1),
           Expanded(
             child: RefreshIndicator(
@@ -322,6 +438,7 @@ class _DiaStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selecionado = ref.watch(planejamentoDiaProvider);
     final selStr = Formatters.iso(selecionado);
+    final cap = ref.watch(capacidadeDiariaTotalProvider).value ?? 0;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
@@ -330,58 +447,18 @@ class _DiaStrip extends ConsumerWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: InkWell(
-                  onTap: () =>
-                      ref.read(planejamentoDiaProvider.notifier).set(d.dia),
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: d.diaStr == selStr
-                          ? AppColors.primary
-                          : AppColors.card,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: d.diaStr == selStr
-                            ? AppColors.primary
-                            : AppColors.border,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          d.diaNome,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: d.diaStr == selStr
-                                ? Colors.white
-                                : AppColors.mutedForeground,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${d.total}',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: d.diaStr == selStr
-                                ? Colors.white
-                                : AppColors.foreground,
-                          ),
-                        ),
-                        if (d.total > 0)
-                          Text(
-                            '${d.concluidos}/${d.total}',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: d.diaStr == selStr
-                                  ? Colors.white70
-                                  : AppColors.mutedForeground,
-                            ),
-                          ),
-                      ],
-                    ),
+                child: DragTarget<String>(
+                  onWillAcceptWithDetails: (details) =>
+                      details.data.isNotEmpty && d.diaStr != selStr,
+                  onAcceptWithDetails: (details) =>
+                      moverObraParaDia(context, ref, details.data, d.diaStr),
+                  builder: (context, candidate, _) => _diaCell(
+                    context,
+                    ref,
+                    d,
+                    selStr,
+                    cap,
+                    candidate.isNotEmpty,
                   ),
                 ),
               ),
@@ -389,6 +466,261 @@ class _DiaStrip extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Widget _diaCell(
+    BuildContext context,
+    WidgetRef ref,
+    PlanejamentoDia d,
+    String selStr,
+    double cap,
+    bool hovering,
+  ) {
+    final selecionado = d.diaStr == selStr;
+    final excedido = cap > 0 && d.total > cap;
+    final textColor = selecionado ? Colors.white : AppColors.foreground;
+    final subColor = selecionado ? Colors.white70 : AppColors.mutedForeground;
+    return InkWell(
+      onTap: () => ref.read(planejamentoDiaProvider.notifier).set(d.dia),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+        decoration: BoxDecoration(
+          color: hovering
+              ? AppColors.primary.withValues(alpha: 0.18)
+              : selecionado
+                  ? AppColors.primary
+                  : AppColors.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: excedido
+                ? AppColors.destructive
+                : selecionado
+                    ? AppColors.primary
+                    : AppColors.border,
+            width: excedido ? 1.6 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              d.diaNome,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: selecionado ? Colors.white : AppColors.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '${d.total}',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: textColor,
+                  ),
+                ),
+                if (excedido)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2),
+                    child: Icon(
+                      Icons.warning_amber_rounded,
+                      size: 12,
+                      color: selecionado ? Colors.white : AppColors.destructive,
+                    ),
+                  ),
+              ],
+            ),
+            if (d.total > 0)
+              Text(
+                '${d.concluidos}/${d.total}',
+                style: TextStyle(fontSize: 9, color: subColor),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MesGrid extends ConsumerWidget {
+  const _MesGrid({required this.dias});
+
+  final List<PlanejamentoDia> dias;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selecionado = ref.watch(planejamentoDiaProvider);
+    final selStr = Formatters.iso(selecionado);
+    final cap = ref.watch(capacidadeDiariaTotalProvider).value ?? 0;
+    if (dias.isEmpty) return const SizedBox.shrink();
+
+    const cabecalho = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+    final semanas = <List<PlanejamentoDia>>[];
+    for (var i = 0; i < dias.length; i += 7) {
+      semanas.add(dias.sublist(i, (i + 7).clamp(0, dias.length)));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              for (final c in cabecalho)
+                Expanded(
+                  child: Center(
+                    child: Text(c,
+                        style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.mutedForeground)),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          for (final semana in semanas)
+            Row(
+              children: [
+                for (final d in semana)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(1.5),
+                      child: DragTarget<String>(
+                        onWillAcceptWithDetails: (details) =>
+                            details.data.isNotEmpty && d.diaStr != selStr,
+                        onAcceptWithDetails: (details) => moverObraParaDia(
+                            context, ref, details.data, d.diaStr),
+                        builder: (context, candidate, _) => _celula(
+                          context,
+                          ref,
+                          d,
+                          selStr,
+                          cap,
+                          candidate.isNotEmpty,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (semana.length < 7)
+                  for (var i = semana.length; i < 7; i++)
+                    const Expanded(child: SizedBox()),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _celula(
+    BuildContext context,
+    WidgetRef ref,
+    PlanejamentoDia d,
+    String selStr,
+    double cap,
+    bool hovering,
+  ) {
+    final selecionado = d.diaStr == selStr;
+    final excedido = cap > 0 && d.total > cap;
+    return InkWell(
+      onTap: () => ref.read(planejamentoDiaProvider.notifier).set(d.dia),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 46,
+        decoration: BoxDecoration(
+          color: hovering
+              ? AppColors.primary.withValues(alpha: 0.18)
+              : selecionado
+                  ? AppColors.primary
+                  : AppColors.card,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: excedido
+                ? AppColors.destructive
+                : selecionado
+                    ? AppColors.primary
+                    : AppColors.border,
+            width: excedido ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '${d.dia.day}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: selecionado ? Colors.white : AppColors.foreground,
+              ),
+            ),
+            if (d.total > 0)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${d.total}',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: selecionado
+                          ? Colors.white70
+                          : AppColors.mutedForeground,
+                    ),
+                  ),
+                  if (excedido)
+                    Icon(Icons.warning_amber_rounded,
+                        size: 10,
+                        color:
+                            selecionado ? Colors.white : AppColors.destructive),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> moverObraParaDia(
+  BuildContext context,
+  WidgetRef ref,
+  String obraId,
+  String toDate,
+) async {
+  final from = Formatters.iso(ref.read(planejamentoDiaProvider));
+  if (obraId.isEmpty || from == toDate) return;
+  final tipo = ref.read(planejamentoTipoProvider);
+  if (tipo == 'montagem') return;
+  try {
+    final n = await ref.read(producaoRepositoryProvider).moverObraDia(
+          obraId: obraId,
+          fromDate: from,
+          toDate: toDate,
+          tipo: tipo,
+        );
+    ref.invalidate(planejamentoDadosProvider);
+    ref.invalidate(planejamentoDiaExistenteProvider);
+    // Seleciona o dia de destino para visualizar o resultado.
+    ref.read(planejamentoDiaProvider.notifier).set(DateTime.parse(toDate));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(n > 0
+              ? '$n peça(s) movida(s) para ${Formatters.dataBr(DateTime.parse(toDate))}'
+              : 'Nada para mover'),
+        ),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Erro ao mover: $e')));
+    }
   }
 }
 
@@ -423,15 +755,28 @@ class _ItensDia extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       children: [
         for (final entry in grupos.entries) ...[
-          _GrupoObra(
-            itens: entry.value,
-            mostrarProduzir: tipo == 'producao',
-            onTap: (item) => _editar(context, ref, item),
-            onRemover: (item) => _remover(context, ref, item),
-            onReagendar: (item) => _reagendar(context, ref, item),
-            onReplicar: (item) => _replicar(context, ref, item),
-            onMarcarProduzido: () =>
-                _marcarProduzido(context, ref, entry.value),
+          Builder(
+            builder: (context) {
+              final grupo = _GrupoObra(
+                itens: entry.value,
+                mostrarProduzir: tipo == 'producao',
+                onTap: (item) => _editar(context, ref, item),
+                onRemover: (item) => _remover(context, ref, item),
+                onReagendar: (item) => _reagendar(context, ref, item),
+                onReplicar: (item) => _replicar(context, ref, item),
+                onMarcarProduzido: () =>
+                    _marcarProduzido(context, ref, entry.value),
+              );
+              return LongPressDraggable<String>(
+                data: entry.value.first.obraId,
+                feedback: Material(
+                  color: Colors.transparent,
+                  child: _DragFeedback(nome: entry.value.first.obraNome),
+                ),
+                childWhenDragging: Opacity(opacity: 0.4, child: grupo),
+                child: grupo,
+              );
+            },
           ),
           const SizedBox(height: 12),
         ],
@@ -610,6 +955,43 @@ class _ItensDia extends ConsumerWidget {
     await ref.read(producaoRepositoryProvider).removerPlanejamento(item.planId);
     ref.invalidate(planejamentoDadosProvider);
     ref.invalidate(planejamentoDiaExistenteProvider);
+  }
+}
+
+class _DragFeedback extends StatelessWidget {
+  const _DragFeedback({required this.nome});
+
+  final String nome;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.drag_indicator, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 200),
+            child: Text(
+              nome,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
