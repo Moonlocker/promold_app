@@ -15,6 +15,7 @@ import '../../../providers/supabase_providers.dart';
 import '../../../services/orcamento_pdf_service.dart';
 import '../widgets/orcamento_anexos_card.dart';
 import 'orcamento_etapas_screen.dart';
+import 'orcamento_pdf_layout_screen.dart';
 
 const _status = ['rascunho', 'enviado', 'aprovado', 'recusado', 'concluido'];
 
@@ -56,6 +57,15 @@ class OrcamentoDetalheScreen extends ConsumerWidget {
               onPressed: () => _editarDados(context, ref, o),
               icon: const Icon(Icons.edit_outlined),
             ),
+          IconButton(
+            tooltip: 'Layout do PDF',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const OrcamentoPdfLayoutScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.design_services_outlined),
+          ),
           IconButton(
             tooltip: 'Gerar PDF',
             onPressed: () => _pdf(context, ref, o),
@@ -696,11 +706,23 @@ class OrcamentoDetalheScreen extends ConsumerWidget {
         .read(orcamentoComposicoesRepositoryProvider)
         .totalOrcamento(o.id);
     final user = ref.read(appUserProvider).value;
+    final layout =
+        await ref.read(sistemaRepositoryProvider).getPdfLayout();
+    final header = ((layout['header_blocks'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final footer = ((layout['footer_blocks'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
     await OrcamentoPdfService.gerar(
       orcamento: o,
       itens: itens,
       organizacaoNome: user?.organizacao?.nome,
       composicoesTotal: composicoesTotal,
+      headerBlocks: header,
+      footerBlocks: footer,
     );
   }
 

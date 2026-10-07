@@ -7,8 +7,10 @@ import '../../../core/widgets/loading_view.dart';
 import '../../../core/widgets/simple_form_sheet.dart';
 import '../../../models/mapa_montagem.dart';
 import '../../../models/obra_peca.dart';
+import '../../../providers/auth_providers.dart';
 import '../../../providers/obra_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../../../services/mapa_montagem_pdf_service.dart';
 
 /// Aba "Visual": mapa de montagem 2D por vistas (grade de posições).
 class ObraVisualTab extends ConsumerWidget {
@@ -30,90 +32,117 @@ class ObraVisualTab extends ConsumerWidget {
             icon: const Icon(Icons.add),
             label: const Text('Nova Vista'),
           ),
-          body: vistas.isEmpty
-              ? const EmptyState(
-                  icon: Icons.grid_view_outlined,
-                  title: 'Nenhuma vista',
-                  message:
-                      'Crie uma vista para posicionar as peças no mapa de montagem.',
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                  itemCount: vistas.length,
-                  itemBuilder: (context, i) {
-                    final v = vistas[i];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.grid_view_outlined,
-                              size: 18, color: AppColors.primary),
-                        ),
-                        title: Text(v.nome,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(
-                          '${v.linhas} × ${v.colunas}${v.descricao != null && v.descricao!.isNotEmpty ? ' · ${v.descricao}' : ''}',
-                          style: const TextStyle(fontSize: 12.5),
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (a) async {
-                            if (a == 'excluir') {
-                              final ok = await showDialog<bool>(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: const Text('Excluir vista'),
-                                  content: Text('Excluir "${v.nome}"?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(context, false),
-                                      child: const Text('Cancelar'),
-                                    ),
-                                    FilledButton(
-                                      style: FilledButton.styleFrom(
-                                          backgroundColor:
-                                              AppColors.destructive),
-                                      onPressed: () =>
-                                          Navigator.pop(context, true),
-                                      child: const Text('Excluir'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (ok == true) {
-                                await ref
-                                    .read(mapaMontagemRepositoryProvider)
-                                    .deleteVista(v.id);
-                                ref.invalidate(obraMapaVistasProvider(obraId));
-                              }
-                            }
-                          },
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(
-                                value: 'excluir',
-                                child: Text('Excluir',
-                                    style: TextStyle(
-                                        color: AppColors.destructive))),
-                          ],
-                        ),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => _MapaEditorScreen(
-                              obraId: obraId,
-                              vista: v,
-                            ),
-                          ),
-                        ),
+          body: Column(
+            children: [
+              if (vistas.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text('Mapa de montagem',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w700)),
                       ),
-                    );
-                  },
+                      TextButton.icon(
+                        onPressed: () => _exportarPdf(context, ref, vistas),
+                        icon: const Icon(Icons.picture_as_pdf_outlined,
+                            size: 18),
+                        label: const Text('Exportar PDF'),
+                      ),
+                    ],
+                  ),
                 ),
+              Expanded(
+                child: vistas.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.grid_view_outlined,
+                        title: 'Nenhuma vista',
+                        message:
+                            'Crie uma vista para posicionar as peças no mapa de montagem.',
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                        itemCount: vistas.length,
+                        itemBuilder: (context, i) {
+                          final v = vistas[i];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: ListTile(
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.grid_view_outlined,
+                                    size: 18, color: AppColors.primary),
+                              ),
+                              title: Text(v.nome,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                              subtitle: Text(
+                                '${v.linhas} × ${v.colunas}${v.descricao != null && v.descricao!.isNotEmpty ? ' · ${v.descricao}' : ''}',
+                                style: const TextStyle(fontSize: 12.5),
+                              ),
+                              trailing: PopupMenuButton<String>(
+                                onSelected: (a) async {
+                                  if (a == 'excluir') {
+                                    final ok = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('Excluir vista'),
+                                        content: Text('Excluir "${v.nome}"?'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Cancelar'),
+                                          ),
+                                          FilledButton(
+                                            style: FilledButton.styleFrom(
+                                                backgroundColor:
+                                                    AppColors.destructive),
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text('Excluir'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (ok == true) {
+                                      await ref
+                                          .read(mapaMontagemRepositoryProvider)
+                                          .deleteVista(v.id);
+                                      ref.invalidate(
+                                          obraMapaVistasProvider(obraId));
+                                    }
+                                  }
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                      value: 'excluir',
+                                      child: Text('Excluir',
+                                          style: TextStyle(
+                                              color: AppColors.destructive))),
+                                ],
+                              ),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => _MapaEditorScreen(
+                                    obraId: obraId,
+                                    vista: v,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -146,6 +175,33 @@ class ObraVisualTab extends ConsumerWidget {
       'tipo': 'grade',
     });
     ref.invalidate(obraMapaVistasProvider(obraId));
+  }
+
+  Future<void> _exportarPdf(
+    BuildContext context,
+    WidgetRef ref,
+    List<MapaMontagemVista> vistas,
+  ) async {
+    try {
+      final celulas = <String, List<MapaMontagemCelula>>{};
+      for (final v in vistas) {
+        celulas[v.id] =
+            await ref.read(obraMapaCelulasProvider(v.id).future);
+      }
+      final obraNome =
+          ref.read(obraProvider(obraId)).value?.nome ?? 'Obra';
+      await MapaMontagemPdfService.gerar(
+        obraNome: obraNome,
+        vistas: vistas,
+        celulasPorVista: celulas,
+        organizacaoNome: ref.read(appUserProvider).value?.organizacao?.nome,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
+      }
+    }
   }
 }
 

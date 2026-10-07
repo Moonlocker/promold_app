@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -13,6 +16,8 @@ class OrcamentoPdfService {
     required List<Map<String, dynamic>> itens,
     String? organizacaoNome,
     double composicoesTotal = 0,
+    List<Map<String, dynamic>> headerBlocks = const [],
+    List<Map<String, dynamic>> footerBlocks = const [],
   }) async {
     final doc = pw.Document();
 
@@ -28,17 +33,60 @@ class OrcamentoPdfService {
         : 0.0;
     final total = subtotal + bdi;
 
+    final vars = <String, String>{
+      'cliente': orcamento.cliente,
+      'endereco': orcamento.endereco ?? '',
+      'numero_orcamento': '${orcamento.numeroOrcamento}',
+      'data_emissao': orcamento.dataCriacao ?? '',
+      'data_validade': orcamento.dataValidade ?? '',
+      'prazo_estimado': orcamento.prazoEstimado ?? '',
+      'contato_responsavel': orcamento.contatoResponsavel ?? '',
+      'telefone_contato': orcamento.telefoneContato ?? '',
+      'metros_quadrados': '',
+      'valor_total': _moeda(total),
+      'empresa_nome': organizacaoNome ?? 'ProMold',
+      'observacoes': orcamento.observacoes ?? '',
+    };
+
+    // Pré-carrega imagens usadas nos blocos.
+    final imagens = <String, Uint8List>{};
+    for (final b in [...headerBlocks, ...footerBlocks]) {
+      if (b['type'] == 'image') {
+        final url = (b['imageUrl'] as String?) ?? '';
+        if (url.isNotEmpty && !imagens.containsKey(url)) {
+          final bytes = await _baixarImagem(url);
+          if (bytes != null) imagens[url] = bytes;
+        }
+      }
+    }
+
+    final usaHeaderCustom = headerBlocks.isNotEmpty;
+    final usaFooterCustom = footerBlocks.isNotEmpty;
+
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
-        header: (context) => _header(orcamento, organizacaoNome),
-        footer: (context) => pw.Align(
-          alignment: pw.Alignment.centerRight,
-          child: pw.Text(
-            'Página ${context.pageNumber} de ${context.pagesCount}',
-            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
-          ),
+        header: (context) => usaHeaderCustom
+            ? _blocos(headerBlocks, vars, imagens)
+            : _header(orcamento, organizacaoNome),
+        footer: (context) => pw.Column(
+          mainAxisSize: pw.MainAxisSize.min,
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            if (usaFooterCustom)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 4),
+                child: _blocos(footerBlocks, vars, imagens),
+              ),
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text(
+                'Página ${context.pageNumber} de ${context.pagesCount}',
+                style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
+              ),
+            ),
+          ],
         ),
         build: (context) => [
           pw.SizedBox(height: 8),
@@ -136,6 +184,102 @@ class OrcamentoPdfService {
 
     final bytes = await doc.save();
     await Printing.layoutPdf(onLayout: (_) async => bytes);
+  }
+
+  static pw.Widget _blocos(
+    List<Map<String, dynamic>> blocks,
+    Map<String, String> vars,
+    Map<String, Uint8List> imagens,
+  ) {
+    final widgets = <pw.Widget>[];
+    for (final b in blocks) {
+      final type = b['type'] as String? ?? 'text';
+      final align = _align(b['align'] as String?);
+      final size = (b['fontSize'] as num?)?.toDouble() ?? 10;
+      final bold = (b['bold'] as bool?) ?? false;
+      final italic = (b['italic'] as bool?) ?? false;
+      switch (type) {
+        case 'line':
+          widgets.add(pw.Divider(color: PdfColors.grey400));
+          break;
+        case 'spacer':
+          widgets.add(
+              pw.SizedBox(height: (b['height'] as num?)?.toDouble() ?? 12));
+          break;
+        case 'image':
+          final url = (b['imageUrl'] as String?) ?? '';
+          final bytes = imagens[url];
+          if (bytes != null) {
+            widgets.add(
+              pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                child: pw.Image(pw.MemoryImage(bytes),
+                    height: 40, fit: pw.BoxFit.contain),
+              ),
+            );
+          }
+          break;
+        case 'title':
+        case 'text':
+        default:
+          widgets.add(
+            pw.Text(
+              _resolve((b['content'] as String?) ?? '', vars),
+              textAlign: align,
+              style: pw.TextStyle(
+                fontSize: size,
+                fontWeight:
+                    bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                fontStyle:
+                    italic ? pw.FontStyle.italic : pw.FontStyle.normal,
+              ),
+            ),
+          );
+      }
+    }
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: widgets,
+    );
+  }
+
+  static String _resolve(String text, Map<String, String> vars) {
+    var out = text;
+    vars.forEach((k, v) {
+      out = out.replaceAll('{{$k}}', v);
+    });
+    return out;
+  }
+
+  static pw.TextAlign _align(String? a) {
+    switch (a) {
+      case 'center':
+        return pw.TextAlign.center;
+      case 'right':
+        return pw.TextAlign.right;
+      default:
+        return pw.TextAlign.left;
+    }
+  }
+
+  static Future<Uint8List?> _baixarImagem(String url) async {
+    try {
+      final client = HttpClient();
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        client.close();
+        return null;
+      }
+      final bytes = await response.fold<List<int>>(
+        <int>[],
+        (prev, chunk) => prev..addAll(chunk),
+      );
+      client.close();
+      return Uint8List.fromList(bytes);
+    } catch (_) {
+      return null;
+    }
   }
 
   static pw.Widget _header(Orcamento orcamento, String? organizacaoNome) {

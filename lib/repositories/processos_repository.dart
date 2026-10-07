@@ -30,6 +30,49 @@ class ProcessosRepository {
         .toList();
   }
 
+  Future<void> saveProcesso(Map<String, dynamic> data, {String? id}) async {
+    if (id != null) {
+      await _client.from('processos_etapas').update(data).eq('id', id);
+    } else {
+      await _client.from('processos_etapas').insert(data);
+    }
+  }
+
+  Future<void> deleteProcesso(String id) async {
+    final itens = await _client
+        .from('processos_etapas_itens')
+        .select('id')
+        .eq('processo_id', id);
+    final ids = itens.map((e) => e['id'] as String).toList();
+    if (ids.isNotEmpty) {
+      await _client
+          .from('obra_etapa_status')
+          .delete()
+          .inFilter('etapa_item_id', ids);
+      await _client
+          .from('processos_etapas_itens')
+          .delete()
+          .inFilter('id', ids);
+    }
+    await _client.from('processos_etapas').delete().eq('id', id);
+  }
+
+  Future<void> saveItem(Map<String, dynamic> data, {String? id}) async {
+    if (id != null) {
+      await _client.from('processos_etapas_itens').update(data).eq('id', id);
+    } else {
+      await _client.from('processos_etapas_itens').insert(data);
+    }
+  }
+
+  Future<void> deleteItem(String id) async {
+    await _client
+        .from('obra_etapa_status')
+        .delete()
+        .eq('etapa_item_id', id);
+    await _client.from('processos_etapas_itens').delete().eq('id', id);
+  }
+
   Future<List<ObraEtapaStatus>> listStatus() async {
     final rows = await _client.from('obra_etapa_status').select();
     return rows

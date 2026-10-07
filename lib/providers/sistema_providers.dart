@@ -81,6 +81,11 @@ final composicaoCatalogoInsumosProvider =
       .listCatalogoInsumos(composicaoId),
 );
 
+/// Layout do PDF do orçamento (cabeçalho/rodapé) da organização.
+final orcamentoPdfLayoutProvider = FutureProvider<Map<String, dynamic>>(
+  (ref) => ref.watch(sistemaRepositoryProvider).getPdfLayout(),
+);
+
 /// Orçamento individual.
 final orcamentoProvider = FutureProvider.family<Orcamento?, String>(
   (ref, id) => ref.watch(sistemaRepositoryProvider).getOrcamento(id),

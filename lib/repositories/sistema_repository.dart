@@ -292,4 +292,43 @@ class SistemaRepository {
         .limit(50);
     return rows.map((e) => Map<String, dynamic>.from(e)).toList();
   }
+
+  // ------------------------------------- Layout do PDF do orçamento (org)
+  Future<Map<String, dynamic>> getPdfLayout() async {
+    final row = await _client
+        .from('orcamento_pdf_config')
+        .select()
+        .filter('orcamento_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
+    if (row == null) {
+      return {'id': null, 'header_blocks': <dynamic>[], 'footer_blocks': <dynamic>[]};
+    }
+    return Map<String, dynamic>.from(row);
+  }
+
+  Future<void> savePdfLayout({
+    required List<dynamic> header,
+    required List<dynamic> footer,
+  }) async {
+    final existing = await _client
+        .from('orcamento_pdf_config')
+        .select('id')
+        .filter('orcamento_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
+    final payload = {
+      'orcamento_id': null,
+      'header_blocks': header,
+      'footer_blocks': footer,
+    };
+    if (existing != null) {
+      await _client
+          .from('orcamento_pdf_config')
+          .update(payload)
+          .eq('id', existing['id'] as String);
+    } else {
+      await _client.from('orcamento_pdf_config').insert(payload);
+    }
+  }
 }

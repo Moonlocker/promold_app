@@ -13,6 +13,7 @@ import '../../../models/obra.dart';
 import '../../../models/obra_peca.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/obra_providers.dart';
+import 'processos_etapas_screen.dart';
 
 const _statusLabel = {
   'planejamento': 'Planejamento',
@@ -48,7 +49,20 @@ class _VisaoGeralScreenState extends ConsumerState<VisaoGeralScreen> {
         ref.watch(statusConfigProvider).value ?? StatusConfig.defaults;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Status Geral')),
+      appBar: AppBar(
+        title: const Text('Status Geral'),
+        actions: [
+          IconButton(
+            tooltip: 'Processos e Etapas',
+            icon: const Icon(Icons.account_tree_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ProcessosEtapasScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: obrasAsync.when(
         loading: () => const LoadingView(),
         error: (e, _) => Center(child: Text('Erro: $e')),
