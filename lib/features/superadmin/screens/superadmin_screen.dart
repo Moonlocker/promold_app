@@ -6,6 +6,9 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../providers/superadmin_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../widgets/superadmin_flags_tab.dart';
+import '../widgets/superadmin_modulos_tab.dart';
+import '../widgets/superadmin_usuarios_tab.dart';
 
 /// Painel SuperAdmin da plataforma.
 class SuperAdminScreen extends StatelessWidget {
@@ -14,14 +17,19 @@ class SuperAdminScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('SuperAdmin'),
           bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
               Tab(text: 'Executivo'),
               Tab(text: 'Organizações'),
+              Tab(text: 'Usuários'),
+              Tab(text: 'Módulos & Páginas'),
+              Tab(text: 'Feature Flags'),
               Tab(text: 'Auditoria'),
             ],
           ),
@@ -30,6 +38,9 @@ class SuperAdminScreen extends StatelessWidget {
           children: [
             _ExecutivoTab(),
             _OrganizacoesTab(),
+            SuperAdminUsuariosTab(),
+            SuperAdminModulosTab(),
+            SuperAdminFlagsTab(),
             _AuditoriaTab(),
           ],
         ),

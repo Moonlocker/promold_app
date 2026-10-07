@@ -38,4 +38,187 @@ class SuperAdminRepository {
         .map((e) => AuditLogSuper.fromMap(Map<String, dynamic>.from(e)))
         .toList();
   }
+
+  // ------------------------------------------------------------- Usuários
+  Future<List<Map<String, dynamic>>> listProfiles() async {
+    final rows = await _client.from('profiles').select().order('nome');
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listUserRoles() async {
+    final rows = await _client.from('user_roles').select();
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<Map<String, dynamic>> createUser(Map<String, dynamic> body) async {
+    final res = await _client.functions.invoke('create-user', body: body);
+    final data = res.data;
+    if (data is Map && data['error'] != null) {
+      throw Exception(data['error']);
+    }
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  Future<void> updateProfile(String userId, Map<String, dynamic> data) async {
+    await _client.from('profiles').update(data).eq('user_id', userId);
+  }
+
+  Future<void> upsertUserRole(String userId, String role) async {
+    final existing = await _client
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (existing != null) {
+      await _client
+          .from('user_roles')
+          .update({'role': role}).eq('user_id', userId);
+    } else {
+      await _client
+          .from('user_roles')
+          .insert({'user_id': userId, 'role': role});
+    }
+  }
+
+  Future<void> impersonateUser(String targetUserId) async {
+    await _client.functions.invoke('impersonate-user', body: {
+      'target_user_id': targetUserId,
+      'redirect_to': null,
+    });
+  }
+
+  Future<void> registrarAudit({
+    required String acao,
+    String? alvoTipo,
+    String? alvoId,
+    String? alvoDescricao,
+  }) async {
+    await _client.rpc('registrar_audit_super', params: {
+      '_acao': acao,
+      '_alvo_tipo': alvoTipo,
+      '_alvo_id': alvoId,
+      '_alvo_descricao': alvoDescricao,
+    });
+  }
+
+  // --------------------------------------------------- Módulos e páginas
+  Future<List<Map<String, dynamic>>> listModulos() async {
+    final rows = await _client.from('modulos').select().order('ordem');
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listPaginas() async {
+    final rows = await _client
+        .from('paginas')
+        .select()
+        .order('categoria')
+        .order('ordem');
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listModulosPaginas() async {
+    final rows = await _client
+        .from('modulos_paginas')
+        .select('modulo_id, pagina_slug');
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> saveModulo(Map<String, dynamic> data, {String? id}) async {
+    if (id != null) {
+      await _client.from('modulos').update(data).eq('id', id);
+    } else {
+      await _client.from('modulos').insert(data);
+    }
+  }
+
+  Future<void> savePagina(Map<String, dynamic> data, {String? id}) async {
+    if (id != null) {
+      await _client.from('paginas').update(data).eq('id', id);
+    } else {
+      await _client.from('paginas').insert(data);
+    }
+  }
+
+  Future<void> deleteModulo(String id) async {
+    await _client.from('modulos_paginas').delete().eq('modulo_id', id);
+    await _client.from('modulos').delete().eq('id', id);
+  }
+
+  Future<void> deletePagina(String id) async {
+    await _client.from('paginas').delete().eq('id', id);
+  }
+
+  Future<void> toggleVinculoModulo({
+    required String moduloId,
+    required String paginaSlug,
+    required bool vincular,
+  }) async {
+    if (vincular) {
+      await _client.from('modulos_paginas').insert({
+        'modulo_id': moduloId,
+        'pagina_slug': paginaSlug,
+      });
+    } else {
+      await _client
+          .from('modulos_paginas')
+          .delete()
+          .eq('modulo_id', moduloId)
+          .eq('pagina_slug', paginaSlug);
+    }
+  }
+
+  // ------------------------------------------------------- Feature flags
+  Future<List<Map<String, dynamic>>> listFeatureFlags() async {
+    final rows = await _client
+        .from('feature_flags')
+        .select()
+        .order('created_at', ascending: false);
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listFeatureFlagOverrides(
+    String flagId,
+  ) async {
+    final rows = await _client
+        .from('organizacao_feature_flags')
+        .select()
+        .eq('feature_flag_id', flagId);
+    return rows.map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> saveFeatureFlag(Map<String, dynamic> data, {String? id}) async {
+    if (id != null) {
+      await _client.from('feature_flags').update(data).eq('id', id);
+    } else {
+      await _client.from('feature_flags').insert(data);
+    }
+  }
+
+  Future<void> deleteFeatureFlag(String id) async {
+    await _client
+        .from('organizacao_feature_flags')
+        .delete()
+        .eq('feature_flag_id', id);
+    await _client.from('feature_flags').delete().eq('id', id);
+  }
+
+  Future<void> setFeatureFlagOverride({
+    required String organizacaoId,
+    required String flagId,
+    required bool? enabled,
+  }) async {
+    if (enabled == null) {
+      await _client
+          .from('organizacao_feature_flags')
+          .delete()
+          .eq('organizacao_id', organizacaoId)
+          .eq('feature_flag_id', flagId);
+    } else {
+      await _client.from('organizacao_feature_flags').upsert({
+        'organizacao_id': organizacaoId,
+        'feature_flag_id': flagId,
+        'enabled': enabled,
+      }, onConflict: 'organizacao_id,feature_flag_id');
+    }
+  }
 }
