@@ -21,6 +21,12 @@ class FornecedoresRepository {
     await _client.from('fornecedores').insert(data);
   }
 
+  Future<int> createMany(List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return 0;
+    await _client.from('fornecedores').insert(rows);
+    return rows.length;
+  }
+
   Future<void> update(String id, Map<String, dynamic> data) async {
     await _client.from('fornecedores').update(data).eq('id', id);
   }

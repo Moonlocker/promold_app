@@ -30,6 +30,12 @@ class EquipeRepository {
     await _client.from('funcionarios').insert(data);
   }
 
+  Future<int> createManyFuncionarios(List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return 0;
+    await _client.from('funcionarios').insert(rows);
+    return rows.length;
+  }
+
   Future<void> updateFuncionario(String id, Map<String, dynamic> data) async {
     await _client.from('funcionarios').update(data).eq('id', id);
   }

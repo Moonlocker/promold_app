@@ -5,6 +5,7 @@ import '../../../providers/auth_providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_view.dart';
+import '../../../core/widgets/xlsx_import_sheet.dart';
 import '../../../models/cliente.dart';
 import '../../../providers/cadastros_providers.dart';
 import '../../../providers/supabase_providers.dart';
@@ -26,7 +27,17 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
     final clientesAsync = ref.watch(clientesListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Clientes')),
+      appBar: AppBar(
+        title: const Text('Clientes'),
+        actions: [
+          if (ref.podeCriar('clientes'))
+            IconButton(
+              tooltip: 'Importar XLSX',
+              icon: const Icon(Icons.upload_file_outlined),
+              onPressed: _importar,
+            ),
+        ],
+      ),
       floatingActionButton: ref.podeCriar('clientes')
           ? FloatingActionButton.extended(
               onPressed: () => showClienteFormSheet(context),
@@ -83,6 +94,44 @@ class _ClientesScreenState extends ConsumerState<ClientesScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _importar() async {
+    final ok = await showXlsxImportSheet(
+      context,
+      title: 'Importar Clientes',
+      templateName: 'clientes',
+      columns: const [
+        XlsxImportColumn(
+            key: 'nome',
+            label: 'Nome',
+            required: true,
+            example: 'Cliente Exemplo'),
+        XlsxImportColumn(key: 'tipo_pessoa', label: 'Tipo (PF/PJ)', example: 'PJ'),
+        XlsxImportColumn(
+            key: 'cpf_cnpj', label: 'CPF/CNPJ', example: '00.000.000/0001-00'),
+        XlsxImportColumn(
+            key: 'email', label: 'E-mail', example: 'contato@exemplo.com'),
+        XlsxImportColumn(
+            key: 'telefone', label: 'Telefone', example: '(11) 99999-9999'),
+        XlsxImportColumn(key: 'cidade', label: 'Cidade', example: 'São Paulo'),
+        XlsxImportColumn(key: 'uf', label: 'UF', example: 'SP'),
+      ],
+      onImport: (rows) async {
+        final normalizadas = rows.map((r) {
+          final map = Map<String, dynamic>.from(r);
+          final tipo = (map['tipo_pessoa'] as String?)?.toUpperCase();
+          map['tipo_pessoa'] = (tipo == 'PF' || tipo == 'PJ') ? tipo : 'PJ';
+          final uf = map['uf'] as String?;
+          if (uf != null && uf.isNotEmpty) map['uf'] = uf.toUpperCase();
+          return map;
+        }).toList();
+        return ref
+            .read(clientesRepositoryProvider)
+            .createMany(normalizadas);
+      },
+    );
+    if (ok == true) ref.invalidate(clientesListProvider);
   }
 }
 

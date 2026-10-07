@@ -7,6 +7,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../core/widgets/simple_form_sheet.dart';
+import '../../../core/widgets/xlsx_import_sheet.dart';
 import '../../../models/ausencia.dart';
 import '../../../models/cargo.dart';
 import '../../../models/funcionario.dart';
@@ -133,13 +134,25 @@ class _FuncionariosTabState extends ConsumerState<_FuncionariosTab> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  onChanged: (v) => setState(() => _busca = v),
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search, size: 20),
-                    hintText: 'Buscar funcionário...',
-                    isDense: true,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        onChanged: (v) => setState(() => _busca = v),
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search, size: 20),
+                          hintText: 'Buscar funcionário...',
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Importar XLSX',
+                      icon: const Icon(Icons.upload_file_outlined),
+                      onPressed: _importar,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -203,6 +216,65 @@ class _FuncionariosTabState extends ConsumerState<_FuncionariosTab> {
         },
       ),
     );
+  }
+
+  Future<void> _importar() async {
+    final ok = await showXlsxImportSheet(
+      context,
+      title: 'Importar Colaboradores',
+      templateName: 'funcionarios',
+      columns: const [
+        XlsxImportColumn(
+            key: 'nome',
+            label: 'Nome',
+            required: true,
+            example: 'João da Silva'),
+        XlsxImportColumn(
+            key: 'telefone', label: 'Telefone', example: '(11) 99999-9999'),
+        XlsxImportColumn(
+            key: 'email', label: 'E-mail', example: 'joao@empresa.com'),
+        XlsxImportColumn(
+            key: 'salario',
+            label: 'Salário',
+            isNumber: true,
+            example: '2500.00'),
+        XlsxImportColumn(
+            key: 'data_admissao',
+            label: 'Data Admissão (AAAA-MM-DD)',
+            example: '2024-01-15'),
+        XlsxImportColumn(
+            key: 'ativo', label: 'Ativo (sim/não)', example: 'sim'),
+      ],
+      onImport: (rows) async {
+        final normalizadas = rows.map((r) {
+          final map = Map<String, dynamic>.from(r);
+          final ativo = (map['ativo'] as String?)?.toLowerCase().trim() ?? '';
+          map['ativo'] = ativo.isEmpty ||
+              ativo.startsWith('s') ||
+              ativo == 'true' ||
+              ativo == '1';
+          map['data_admissao'] =
+              _normalizarData(map['data_admissao'] as String?);
+          return map;
+        }).toList();
+        final n = await ref
+            .read(equipeRepositoryProvider)
+            .createManyFuncionarios(normalizadas);
+        ref.invalidate(funcionariosListProvider);
+        return n;
+      },
+    );
+    if (ok == true) ref.invalidate(funcionariosListProvider);
+  }
+
+  static String? _normalizarData(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final v = raw.trim();
+    final iso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(v);
+    if (iso != null) return '${iso[1]}-${iso[2]}-${iso[3]}';
+    final br = RegExp(r'^(\d{2})/(\d{2})/(\d{4})').firstMatch(v);
+    if (br != null) return '${br[3]}-${br[2]}-${br[1]}';
+    return v;
   }
 }
 
