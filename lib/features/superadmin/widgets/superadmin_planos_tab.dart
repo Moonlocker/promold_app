@@ -120,7 +120,7 @@ class SuperAdminPlanosTab extends ConsumerWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setSheet) => Padding(
           padding: EdgeInsets.fromLTRB(
-              20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+              20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -385,7 +385,7 @@ class _FaixasTab extends ConsumerWidget {
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.fromLTRB(
-            20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+            20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

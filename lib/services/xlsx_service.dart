@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
@@ -66,7 +67,7 @@ class XlsxService {
   }
 
   static List<List<String>> _lerCsv(Uint8List bytes) {
-    var texto = String.fromCharCodes(bytes);
+    var texto = utf8.decode(bytes, allowMalformed: true);
     if (texto.startsWith('\uFEFF')) texto = texto.substring(1);
     final sep = texto.contains(';') ? ';' : ',';
     final linhas = <List<String>>[];

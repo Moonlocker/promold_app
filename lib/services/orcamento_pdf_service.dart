@@ -224,7 +224,7 @@ class OrcamentoPdfService {
         default:
           widgets.add(
             pw.Text(
-              _resolve((b['content'] as String?) ?? '', vars),
+              resolveTexto((b['content'] as String?) ?? '', vars),
               textAlign: align,
               style: pw.TextStyle(
                 fontSize: size,
@@ -243,7 +243,8 @@ class OrcamentoPdfService {
     );
   }
 
-  static String _resolve(String text, Map<String, String> vars) {
+  /// Substitui as variáveis `{{chave}}` pelos valores informados.
+  static String resolveTexto(String text, Map<String, String> vars) {
     var out = text;
     vars.forEach((k, v) {
       out = out.replaceAll('{{$k}}', v);

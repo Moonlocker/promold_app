@@ -319,7 +319,7 @@ class _EtapaCard extends ConsumerWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setSheet) => Padding(
           padding: EdgeInsets.fromLTRB(
-              20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+              20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -634,7 +634,7 @@ class _InsumosSheetState extends ConsumerState<_InsumosSheet> {
       builder: (context) => StatefulBuilder(
         builder: (context, setSheet) => Padding(
           padding: EdgeInsets.fromLTRB(
-              20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+              20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../providers/auth_providers.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_input.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_view.dart';
@@ -375,7 +376,7 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
         final normalizadas = rows.map((r) {
           final map = Map<String, dynamic>.from(r);
           map['data_vencimento'] =
-              _normalizarData(map['data_vencimento'] as String?);
+              normalizarDataBr(map['data_vencimento'] as String?);
           return map;
         }).toList();
         await ref
@@ -385,16 +386,6 @@ class _ContasScreenState extends ConsumerState<ContasScreen> {
       },
     );
     if (ok == true) _invalidar();
-  }
-
-  static String? _normalizarData(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return null;
-    final v = raw.trim();
-    final iso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(v);
-    if (iso != null) return '${iso[1]}-${iso[2]}-${iso[3]}';
-    final br = RegExp(r'^(\d{2})/(\d{2})/(\d{4})').firstMatch(v);
-    if (br != null) return '${br[3]}-${br[2]}-${br[1]}';
-    return v;
   }
 
   ({double total, double liquidado, double pendente, double vencido})

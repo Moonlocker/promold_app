@@ -79,7 +79,7 @@ class ProcessosEtapasScreen extends ConsumerWidget {
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.fromLTRB(
-            20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+            20, 16, 20, 20 + MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

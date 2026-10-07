@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/auth_providers.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_input.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_view.dart';
@@ -254,7 +255,7 @@ class _FuncionariosTabState extends ConsumerState<_FuncionariosTab> {
               ativo == 'true' ||
               ativo == '1';
           map['data_admissao'] =
-              _normalizarData(map['data_admissao'] as String?);
+              normalizarDataBr(map['data_admissao'] as String?);
           return map;
         }).toList();
         final n = await ref
@@ -265,16 +266,6 @@ class _FuncionariosTabState extends ConsumerState<_FuncionariosTab> {
       },
     );
     if (ok == true) ref.invalidate(funcionariosListProvider);
-  }
-
-  static String? _normalizarData(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return null;
-    final v = raw.trim();
-    final iso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(v);
-    if (iso != null) return '${iso[1]}-${iso[2]}-${iso[3]}';
-    final br = RegExp(r'^(\d{2})/(\d{2})/(\d{4})').firstMatch(v);
-    if (br != null) return '${br[3]}-${br[2]}-${br[1]}';
-    return v;
   }
 }
 

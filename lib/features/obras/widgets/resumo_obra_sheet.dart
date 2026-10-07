@@ -69,7 +69,8 @@ class _ResumoObraSheet extends StatelessWidget {
       maxChildSize: 0.95,
       builder: (context, controller) => ListView(
         controller: controller,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        padding: EdgeInsets.fromLTRB(
+            20, 12, 20, 24 + MediaQuery.of(context).padding.bottom),
         children: [
           Center(
             child: Container(
