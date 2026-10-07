@@ -1,10 +1,29 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import 'connectivity.dart';
 import 'pending_mutation.dart';
+
+/// Heurística para identificar erros de rede/conexão (e não erros de
+/// permissão/validação do servidor), evitando marcar o app como offline
+/// indevidamente.
+bool _pareceErroDeRede(Object e) {
+  if (e is TimeoutException || e is SocketException) return true;
+  final s = e.toString().toLowerCase();
+  return s.contains('socketexception') ||
+      s.contains('timeoutexception') ||
+      s.contains('failed host lookup') ||
+      s.contains('clientexception') ||
+      s.contains('connection') ||
+      s.contains('network') ||
+      s.contains('xmlhttprequest') ||
+      s.contains('connection refused') ||
+      s.contains('no address associated');
+}
 
 /// Erro lançado quando não há internet e não há dado em cache local.
 class OfflineException implements Exception {
@@ -142,8 +161,8 @@ class OfflineDatabase {
         } catch (_) {}
       }
       return data;
-    } catch (_) {
-      AppConnectivity.instance.reportOnline(false);
+    } catch (e) {
+      if (_pareceErroDeRede(e)) AppConnectivity.instance.reportOnline(false);
       if (db != null) {
         final cached = await readCache(key);
         if (cached is List) return _asRows(cached);
@@ -172,8 +191,8 @@ class OfflineDatabase {
         } catch (_) {}
       }
       return data;
-    } catch (_) {
-      AppConnectivity.instance.reportOnline(false);
+    } catch (e) {
+      if (_pareceErroDeRede(e)) AppConnectivity.instance.reportOnline(false);
       if (db != null) {
         final cached = await readCache(key);
         if (cached is Map) return Map<String, dynamic>.from(cached);
