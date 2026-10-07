@@ -122,6 +122,87 @@ class ProducaoRepository {
     await _client.from('planejamento_semanal').delete().eq('id', id);
   }
 
+  /// Reagenda um planejamento (uma peça) para outra data.
+  /// Se a peça já estiver planejada nesse dia, remove o registro de origem.
+  Future<void> reagendarPlanejamento(String planId, String data) async {
+    final atual = await _client
+        .from('planejamento_semanal')
+        .select('obra_peca_id, tipo')
+        .eq('id', planId)
+        .maybeSingle();
+    final pecaId = atual?['obra_peca_id'] as String?;
+    final tipo = atual?['tipo'] as String?;
+    if (pecaId != null && tipo != null) {
+      final existente = await _client
+          .from('planejamento_semanal')
+          .select('id')
+          .eq('obra_peca_id', pecaId)
+          .eq('data_inicio', data)
+          .eq('tipo', tipo)
+          .neq('id', planId)
+          .maybeSingle();
+      if (existente != null) {
+        await _client.from('planejamento_semanal').delete().eq('id', planId);
+        return;
+      }
+    }
+    await _client
+        .from('planejamento_semanal')
+        .update({'data_inicio': data, 'data_fim': data})
+        .eq('id', planId);
+  }
+
+  /// Replica um planejamento para outra data, mantendo o original.
+  /// Ignora se a peça já estiver planejada nesse dia.
+  Future<void> duplicarPlanejamento(String planId, String data) async {
+    final row = await _client
+        .from('planejamento_semanal')
+        .select()
+        .eq('id', planId)
+        .single();
+    final pecaId = row['obra_peca_id'] as String?;
+    final tipo = row['tipo'] as String?;
+    if (pecaId != null && tipo != null) {
+      final existente = await _client
+          .from('planejamento_semanal')
+          .select('id')
+          .eq('obra_peca_id', pecaId)
+          .eq('data_inicio', data)
+          .eq('tipo', tipo)
+          .maybeSingle();
+      if (existente != null) return;
+    }
+    final novo = Map<String, dynamic>.from(row)
+      ..remove('id')
+      ..remove('created_at')
+      ..remove('updated_at')
+      ..['data_inicio'] = data
+      ..['data_fim'] = data;
+    await _client.from('planejamento_semanal').insert(novo);
+  }
+
+  /// Remove todos os planejamentos do tipo no período. Retorna o total removido.
+  Future<int> limparPeriodo(
+    String inicio,
+    String fim,
+    String tipo,
+  ) async {
+    final rows = await _client
+        .from('planejamento_semanal')
+        .select('id')
+        .gte('data_inicio', inicio)
+        .lte('data_inicio', fim)
+        .eq('tipo', tipo);
+    final ids = rows.map((e) => e['id'] as String).toList();
+    if (ids.isNotEmpty) {
+      await _client
+          .from('planejamento_semanal')
+          .delete()
+          .inFilter('id', ids);
+    }
+    return ids.length;
+  }
+
   /// Planejamento de montagem contido no período.
   Future<List<Map<String, dynamic>>> listMontagem(
     String inicio,

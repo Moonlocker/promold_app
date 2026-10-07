@@ -43,6 +43,19 @@ class PlanejamentoScreen extends ConsumerWidget {
               icon: const Icon(Icons.add),
               onPressed: () => _adicionar(context, ref, tipo, dia),
             ),
+          if (!isMontagem)
+            PopupMenuButton<String>(
+              onSelected: (v) {
+                if (v == 'limpar') _limparSemana(context, ref, tipo);
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'limpar',
+                  child: Text('Limpar semana',
+                      style: TextStyle(color: AppColors.destructive)),
+                ),
+              ],
+            ),
         ],
       ),
       floatingActionButton: isMontagem
@@ -85,6 +98,51 @@ class PlanejamentoScreen extends ConsumerWidget {
     );
     if (salvou == true) {
       ref.invalidate(planejamentoDadosProvider);
+    }
+  }
+
+  Future<void> _limparSemana(
+    BuildContext context,
+    WidgetRef ref,
+    String tipo,
+  ) async {
+    final semana = ref.read(planejamentoSemanaProvider);
+    final fim = semana.add(const Duration(days: 6));
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Limpar semana'),
+        content: Text(
+          'Remover todos os planejamentos de '
+          '${tipo == 'armacao' ? 'armação' : 'produção'} desta semana? '
+          'As peças não serão excluídas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.destructive),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Limpar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+    final n = await ref.read(producaoRepositoryProvider).limparPeriodo(
+          Formatters.iso(semana),
+          Formatters.iso(fim),
+          tipo,
+        );
+    ref.invalidate(planejamentoDadosProvider);
+    ref.invalidate(planejamentoDiaExistenteProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$n planejamento(s) removido(s)')),
+      );
     }
   }
 }
@@ -370,6 +428,8 @@ class _ItensDia extends ConsumerWidget {
             mostrarProduzir: tipo == 'producao',
             onTap: (item) => _editar(context, ref, item),
             onRemover: (item) => _remover(context, ref, item),
+            onReagendar: (item) => _reagendar(context, ref, item),
+            onReplicar: (item) => _replicar(context, ref, item),
             onMarcarProduzido: () =>
                 _marcarProduzido(context, ref, entry.value),
           ),
@@ -377,6 +437,54 @@ class _ItensDia extends ConsumerWidget {
         ],
       ],
     );
+  }
+
+  Future<void> _reagendar(
+    BuildContext context,
+    WidgetRef ref,
+    PlanejamentoItem item,
+  ) async {
+    final data = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (data == null) return;
+    await ref
+        .read(producaoRepositoryProvider)
+        .reagendarPlanejamento(item.planId, Formatters.iso(data));
+    ref.invalidate(planejamentoDadosProvider);
+    ref.invalidate(planejamentoDiaExistenteProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Peça reagendada')),
+      );
+    }
+  }
+
+  Future<void> _replicar(
+    BuildContext context,
+    WidgetRef ref,
+    PlanejamentoItem item,
+  ) async {
+    final data = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (data == null) return;
+    await ref
+        .read(producaoRepositoryProvider)
+        .duplicarPlanejamento(item.planId, Formatters.iso(data));
+    ref.invalidate(planejamentoDadosProvider);
+    ref.invalidate(planejamentoDiaExistenteProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Peça replicada para a nova data')),
+      );
+    }
   }
 
   Future<void> _marcarProduzido(
@@ -510,6 +618,8 @@ class _GrupoObra extends StatelessWidget {
     required this.itens,
     required this.onTap,
     required this.onRemover,
+    required this.onReagendar,
+    required this.onReplicar,
     required this.mostrarProduzir,
     required this.onMarcarProduzido,
   });
@@ -517,6 +627,8 @@ class _GrupoObra extends StatelessWidget {
   final List<PlanejamentoItem> itens;
   final ValueChanged<PlanejamentoItem> onTap;
   final ValueChanged<PlanejamentoItem> onRemover;
+  final ValueChanged<PlanejamentoItem> onReagendar;
+  final ValueChanged<PlanejamentoItem> onReplicar;
   final bool mostrarProduzir;
   final VoidCallback onMarcarProduzido;
 
@@ -584,6 +696,8 @@ class _GrupoObra extends StatelessWidget {
                 item: item,
                 onTap: () => onTap(item),
                 onRemover: () => onRemover(item),
+                onReagendar: () => onReagendar(item),
+                onReplicar: () => onReplicar(item),
               ),
           ],
         ),
@@ -597,17 +711,20 @@ class _ItemLinha extends StatelessWidget {
     required this.item,
     required this.onTap,
     required this.onRemover,
+    required this.onReagendar,
+    required this.onReplicar,
   });
 
   final PlanejamentoItem item;
   final VoidCallback onTap;
   final VoidCallback onRemover;
+  final VoidCallback onReagendar;
+  final VoidCallback onReplicar;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: item.obraPecaId != null ? onTap : null,
-      onLongPress: onRemover,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
@@ -638,15 +755,23 @@ class _ItemLinha extends StatelessWidget {
               ),
             ),
             PecaStatusChip(status: item.status, compact: true),
-            IconButton(
-              onPressed: onRemover,
-              icon: const Icon(
-                Icons.delete_outline,
-                size: 18,
-                color: AppColors.destructive,
-              ),
-              tooltip: 'Remover do planejamento',
-              visualDensity: VisualDensity.compact,
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (v) {
+                if (v == 'reagendar') onReagendar();
+                if (v == 'replicar') onReplicar();
+                if (v == 'remover') onRemover();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'reagendar', child: Text('Reagendar')),
+                PopupMenuItem(
+                    value: 'replicar', child: Text('Replicar p/ outro dia')),
+                PopupMenuItem(
+                  value: 'remover',
+                  child: Text('Remover',
+                      style: TextStyle(color: AppColors.destructive)),
+                ),
+              ],
             ),
           ],
         ),
