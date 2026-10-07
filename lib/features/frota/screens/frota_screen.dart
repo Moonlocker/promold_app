@@ -1,5 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../providers/auth_providers.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -7,6 +9,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../core/widgets/simple_form_sheet.dart';
 import '../../../models/veiculo.dart';
+import '../../../providers/equipe_providers.dart';
 import '../../../providers/sistema_providers.dart';
 import '../../../providers/supabase_providers.dart';
 
@@ -78,6 +81,8 @@ class _FrotaScreenState extends ConsumerState<FrotaScreen> {
   }
 
   Future<void> _abrirForm({Veiculo? veiculo}) async {
+    final funcionarios =
+        ref.read(funcionariosListProvider).value ?? const [];
     final result = await showSimpleFormSheet(
       context,
       title: veiculo == null ? 'Novo Veículo' : 'Editar Veículo',
@@ -121,6 +126,15 @@ class _FrotaScreenState extends ConsumerState<FrotaScreen> {
             label: 'Capacidade (t)',
             initial: veiculo?.capacidade?.toString(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+        SimpleField(
+          key: 'motorista_padrao_id',
+          label: 'Motorista padrão',
+          initial: veiculo?.motoristaPadraoId ?? '',
+          options: [
+            const SimpleOption('', '— Nenhum —'),
+            for (final f in funcionarios) SimpleOption(f.id, f.nome),
+          ],
+        ),
       ],
     );
     if (result == null) return;
@@ -132,6 +146,9 @@ class _FrotaScreenState extends ConsumerState<FrotaScreen> {
       'propriedade': result['propriedade'],
       'capacidade':
           double.tryParse((result['capacidade'] ?? '').replaceAll(',', '.')),
+      'motorista_padrao_id': (result['motorista_padrao_id'] ?? '').isEmpty
+          ? null
+          : result['motorista_padrao_id'],
     };
     if (veiculo == null) {
       await repo.createVeiculo({...payload, 'ativo': true});
@@ -150,6 +167,11 @@ class _VeiculoCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final funcs = ref.watch(funcionariosListProvider).value ?? const [];
+    final motoristaNome = funcs
+        .where((f) => f.id == veiculo.motoristaPadraoId)
+        .firstOrNull
+        ?.nome;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
@@ -158,20 +180,24 @@ class _VeiculoCard extends ConsumerWidget {
                 await _editar(context, ref);
               }
             : null,
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.local_shipping_outlined,
-              size: 18, color: AppColors.primary),
-        ),
+        leading: veiculo.fotoUrl != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  veiculo.fotoUrl!,
+                  width: 44,
+                  height: 44,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _avatarIcone(),
+                ),
+              )
+            : _avatarIcone(),
         title: Text('${veiculo.placa} · ${veiculo.modelo}',
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
           '${veiculo.tipo ?? '-'} · ${veiculo.propriedade}'
-          '${veiculo.capacidade != null ? ' · ${veiculo.capacidade}t' : ''}',
+          '${veiculo.capacidade != null ? ' · ${veiculo.capacidade}t' : ''}'
+          '${motoristaNome != null ? '\nMotorista: $motoristaNome' : ''}',
           style: const TextStyle(fontSize: 12.5),
         ),
         trailing: (ref.podeEditar('frota') || ref.podeExcluir('frota'))
@@ -181,6 +207,8 @@ class _VeiculoCard extends ConsumerWidget {
             switch (v) {
               case 'editar':
                 await _editar(context, ref);
+              case 'foto':
+                await _alterarFoto(context, ref);
               case 'toggle':
                 await repo.updateVeiculo(veiculo.id, {'ativo': !veiculo.ativo});
                 onChanged();
@@ -214,6 +242,8 @@ class _VeiculoCard extends ConsumerWidget {
             if (ref.podeEditar('frota'))
               const PopupMenuItem(value: 'editar', child: Text('Editar')),
             if (ref.podeEditar('frota'))
+              const PopupMenuItem(value: 'foto', child: Text('Alterar foto')),
+            if (ref.podeEditar('frota'))
               PopupMenuItem(
                 value: 'toggle',
                 child: Text(veiculo.ativo ? 'Desativar' : 'Ativar'),
@@ -230,7 +260,19 @@ class _VeiculoCard extends ConsumerWidget {
     );
   }
 
+  Widget _avatarIcone() => Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(Icons.local_shipping_outlined,
+            size: 18, color: AppColors.primary),
+      );
+
   Future<void> _editar(BuildContext context, WidgetRef ref) async {
+    final funcionarios =
+        ref.read(funcionariosListProvider).value ?? const [];
     final result = await showSimpleFormSheet(
       context,
       title: 'Editar Veículo',
@@ -264,6 +306,15 @@ class _VeiculoCard extends ConsumerWidget {
             label: 'Capacidade (t)',
             initial: veiculo.capacidade?.toString(),
             keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+        SimpleField(
+          key: 'motorista_padrao_id',
+          label: 'Motorista padrão',
+          initial: veiculo.motoristaPadraoId ?? '',
+          options: [
+            const SimpleOption('', '— Nenhum —'),
+            for (final f in funcionarios) SimpleOption(f.id, f.nome),
+          ],
+        ),
       ],
     );
     if (result == null) return;
@@ -274,7 +325,44 @@ class _VeiculoCard extends ConsumerWidget {
       'propriedade': result['propriedade'],
       'capacidade':
           double.tryParse((result['capacidade'] ?? '').replaceAll(',', '.')),
+      'motorista_padrao_id': (result['motorista_padrao_id'] ?? '').isEmpty
+          ? null
+          : result['motorista_padrao_id'],
     });
     onChanged();
+  }
+
+  Future<void> _alterarFoto(BuildContext context, WidgetRef ref) async {
+    final picker = ImagePicker();
+    final img = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 72,
+      maxWidth: 1600,
+    );
+    if (img == null) return;
+    try {
+      final bytes = await img.readAsBytes();
+      final ext = img.name.contains('.')
+          ? img.name.split('.').last.toLowerCase()
+          : 'jpg';
+      final client = ref.read(supabaseClientProvider);
+      final path =
+          'veiculo-${veiculo.id}-${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await client.storage.from('veiculos').uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(contentType: 'image/$ext'),
+          );
+      final url = client.storage.from('veiculos').getPublicUrl(path);
+      await ref
+          .read(sistemaRepositoryProvider)
+          .updateVeiculo(veiculo.id, {'foto_url': url});
+      onChanged();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao enviar foto: $e')));
+      }
+    }
   }
 }

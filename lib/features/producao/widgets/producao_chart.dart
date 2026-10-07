@@ -15,6 +15,9 @@ class ProducaoDiariaChart extends StatelessWidget {
     this.corPlanejado = AppColors.primary,
     this.onDayTap,
     this.height = 200,
+    this.getProduzido,
+    this.getPlanejado,
+    this.yDecimals = 0,
   });
 
   final List<ProducaoDia> dias;
@@ -22,6 +25,15 @@ class ProducaoDiariaChart extends StatelessWidget {
   final Color corPlanejado;
   final ValueChanged<ProducaoDia>? onDayTap;
   final double height;
+
+  /// Série "produzido". Padrão: quantidade de peças.
+  final double Function(ProducaoDia)? getProduzido;
+
+  /// Série "planejado". Padrão: quantidade planejada.
+  final double Function(ProducaoDia)? getPlanejado;
+
+  /// Casas decimais nos rótulos do eixo Y.
+  final int yDecimals;
 
   static const _leftPad = 30.0;
   static const _rightPad = 8.0;
@@ -69,6 +81,9 @@ class ProducaoDiariaChart extends StatelessWidget {
               rightPad: _rightPad,
               topPad: _topPad,
               bottomPad: _bottomPad,
+              getProduzido: getProduzido,
+              getPlanejado: getPlanejado,
+              yDecimals: yDecimals,
             ),
           ),
         );
@@ -86,6 +101,9 @@ class _ProducaoChartPainter extends CustomPainter {
     required this.rightPad,
     required this.topPad,
     required this.bottomPad,
+    this.getProduzido,
+    this.getPlanejado,
+    this.yDecimals = 0,
   });
 
   final List<ProducaoDia> dias;
@@ -95,6 +113,12 @@ class _ProducaoChartPainter extends CustomPainter {
   final double rightPad;
   final double topPad;
   final double bottomPad;
+  final double Function(ProducaoDia)? getProduzido;
+  final double Function(ProducaoDia)? getPlanejado;
+  final int yDecimals;
+
+  double _prod(ProducaoDia d) => getProduzido?.call(d) ?? d.pecas.toDouble();
+  double _plan(ProducaoDia d) => getPlanejado?.call(d) ?? d.planejado.toDouble();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -103,9 +127,9 @@ class _ProducaoChartPainter extends CustomPainter {
     final plotHeight = size.height - topPad - bottomPad;
     if (plotWidth <= 0 || plotHeight <= 0 || n == 0) return;
 
-    var maxVal = 1;
+    var maxVal = 1.0;
     for (final d in dias) {
-      maxVal = math.max(maxVal, math.max(d.pecas, d.planejado));
+      maxVal = math.max(maxVal, math.max(_prod(d), _plan(d)));
     }
 
     final gridPaint = Paint()
@@ -119,10 +143,10 @@ class _ProducaoChartPainter extends CustomPainter {
         Offset(size.width - rightPad, y),
         gridPaint,
       );
-      final valor = (maxVal * (1 - i / gridLines)).round();
+      final valor = maxVal * (1 - i / gridLines);
       _text(
         canvas,
-        '$valor',
+        valor.toStringAsFixed(yDecimals),
         Offset(0, y - 6),
         color: AppColors.mutedForeground,
         size: 9,
@@ -136,8 +160,9 @@ class _ProducaoChartPainter extends CustomPainter {
     // Barras (produzido)
     for (var i = 0; i < n; i++) {
       final d = dias[i];
-      if (d.pecas <= 0) continue;
-      final h = plotHeight * (d.pecas / maxVal);
+      final v = _prod(d);
+      if (v <= 0) continue;
+      final h = plotHeight * (v / maxVal);
       final cx = leftPad + slot * i + slot / 2;
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(cx - barWidth / 2, topPad + plotHeight - h, barWidth, h),
@@ -155,7 +180,7 @@ class _ProducaoChartPainter extends CustomPainter {
     for (var i = 0; i < n; i++) {
       final d = dias[i];
       final x = leftPad + slot * i + slot / 2;
-      final y = topPad + plotHeight * (1 - d.planejado / maxVal);
+      final y = topPad + plotHeight * (1 - _plan(d) / maxVal);
       if (i == 0) {
         path.moveTo(x, y);
       } else {
@@ -218,5 +243,6 @@ class _ProducaoChartPainter extends CustomPainter {
   bool shouldRepaint(covariant _ProducaoChartPainter old) =>
       old.dias != dias ||
       old.corProduzido != corProduzido ||
-      old.corPlanejado != corPlanejado;
+      old.corPlanejado != corPlanejado ||
+      old.yDecimals != yDecimals;
 }

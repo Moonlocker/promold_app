@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,6 +17,8 @@ import '../../../models/producao_indicadores.dart';
 import '../../../providers/auth_providers.dart';
 import '../../../providers/obra_providers.dart';
 import '../../../providers/producao_providers.dart';
+import '../../../providers/supabase_providers.dart';
+import '../../obras/widgets/obra_peca_edit_sheet.dart';
 import '../widgets/obra_progress_table.dart';
 import '../widgets/producao_chart.dart';
 
@@ -79,6 +82,8 @@ class ProducaoScreen extends ConsumerWidget {
                       onDayTap: (dia) =>
                           _abrirDia(context, data, obrasNome, dia),
                     ),
+                    const SizedBox(height: 16),
+                    _ConcretoAcoCard(data: data),
                     if (data.porTipo.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _ResumoPorTipo(porTipo: data.porTipo),
@@ -412,6 +417,66 @@ class _GraficoCard extends StatelessWidget {
   }
 }
 
+class _ConcretoAcoCard extends StatelessWidget {
+  const _ConcretoAcoCard({required this.data});
+
+  final ProducaoIndicadores data;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Concreto & Aço',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Consumo diário: produzido x planejado',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: AppColors.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Row(
+              children: [
+                _Legenda(cor: AppColors.success, texto: 'Produzido'),
+                SizedBox(width: 14),
+                _Legenda(cor: AppColors.primary, texto: 'Planejado'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text('Concreto (m³)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ProducaoDiariaChart(
+              dias: data.chartDiario,
+              height: 160,
+              yDecimals: 1,
+              getProduzido: (d) => d.concreto,
+              getPlanejado: (d) => d.concretoPlan,
+            ),
+            const SizedBox(height: 14),
+            const Text('Aço (kg)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            ProducaoDiariaChart(
+              dias: data.chartDiario,
+              height: 160,
+              yDecimals: 0,
+              getProduzido: (d) => d.aco,
+              getPlanejado: (d) => d.acoPlan,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Legenda extends StatelessWidget {
   const _Legenda({required this.cor, required this.texto});
 
@@ -652,7 +717,7 @@ Future<void> _mostrarSheet(
   );
 }
 
-class _PecasLista extends StatelessWidget {
+class _PecasLista extends ConsumerWidget {
   const _PecasLista({
     required this.registros,
     required this.obrasNome,
@@ -664,101 +729,167 @@ class _PecasLista extends StatelessWidget {
   final String modo;
 
   @override
-  Widget build(BuildContext context) {
-    if (registros.isEmpty) {
-      return const Center(
-        child: Text(
-          'Nenhuma peça no período.',
-          style: TextStyle(color: AppColors.mutedForeground),
-        ),
-      );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: registros.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, i) {
-        final r = registros[i];
-        final calc = calcularPeca(r);
-        final obra = obrasNome[r.obraId];
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  if (r.identificador.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.muted,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        r.identificador,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      r.pecaCatalogo?.nome ?? 'Peça',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (obra != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  obra,
+              Expanded(
+                child: Text(
+                  '${registros.length} peça(s) · toque para editar',
                   style: const TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.mutedForeground,
-                  ),
+                      fontSize: 12.5, color: AppColors.mutedForeground),
                 ),
-              ],
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 12,
-                children: [
-                  _Info(
-                    label: modo == 'aco' ? 'Aço' : 'Volume',
-                    valor: modo == 'aco'
-                        ? '${Formatters.numero(calc.aco, 2)} kg'
-                        : '${Formatters.numero(calc.volume, 3)} m³',
-                  ),
-                  _Info(
-                    label: 'Peso',
-                    valor: '${Formatters.numero(calc.peso, 0)} kg',
-                  ),
-                  _Info(
-                    label: 'Aço',
-                    valor: '${Formatters.numero(calc.aco, 1)} kg',
-                  ),
-                ],
+              ),
+              TextButton.icon(
+                onPressed:
+                    registros.isEmpty ? null : () => _exportar(context),
+                icon: const Icon(Icons.file_download_outlined, size: 18),
+                label: const Text('Exportar CSV'),
               ),
             ],
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: registros.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Nenhuma peça no período.',
+                    style: TextStyle(color: AppColors.mutedForeground),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: registros.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) {
+                    final r = registros[i];
+                    final calc = calcularPeca(r);
+                    final obra = obrasNome[r.obraId];
+                    return InkWell(
+                      onTap: () => _editar(context, ref, r),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                if (r.identificador.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.muted,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      r.identificador,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    r.pecaCatalogo?.nome ?? 'Peça',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(Icons.edit_outlined,
+                                    size: 16,
+                                    color: AppColors.mutedForeground),
+                              ],
+                            ),
+                            if (obra != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                obra,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.mutedForeground,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 12,
+                              children: [
+                                _Info(
+                                  label: modo == 'aco' ? 'Aço' : 'Volume',
+                                  valor: modo == 'aco'
+                                      ? '${Formatters.numero(calc.aco, 2)} kg'
+                                      : '${Formatters.numero(calc.volume, 3)} m³',
+                                ),
+                                _Info(
+                                  label: 'Peso',
+                                  valor:
+                                      '${Formatters.numero(calc.peso, 0)} kg',
+                                ),
+                                _Info(
+                                  label: 'Aço',
+                                  valor:
+                                      '${Formatters.numero(calc.aco, 1)} kg',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
+  }
+
+  Future<void> _editar(BuildContext context, WidgetRef ref, ObraPeca r) async {
+    final pecas = await ref.read(obrasRepositoryProvider).listPecas(r.obraId);
+    if (!context.mounted) return;
+    final ok = await showPecaEditSheet(context, ref, peca: r, todas: pecas);
+    if (ok == true) ref.invalidate(producaoIndicadoresProvider);
+  }
+
+  Future<void> _exportar(BuildContext context) async {
+    if (registros.isEmpty) return;
+    String esc(Object? v) =>
+        '"${(v ?? '').toString().replaceAll('"', '""')}"';
+    final sb = StringBuffer()
+      ..writeln('Identificador;Peca;Obra;Volume (m3);Peso (kg);Aco (kg)');
+    for (final r in registros) {
+      final calc = calcularPeca(r);
+      sb.writeln([
+        esc(r.identificador),
+        esc(r.pecaCatalogo?.nome ?? ''),
+        esc(obrasNome[r.obraId] ?? ''),
+        calc.volume.toStringAsFixed(3).replaceAll('.', ','),
+        calc.peso.toStringAsFixed(0),
+        calc.aco.toStringAsFixed(1).replaceAll('.', ','),
+      ].join(';'));
+    }
+    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('CSV copiado (${registros.length} linha(s))')),
+      );
+    }
   }
 }
 
