@@ -8,12 +8,14 @@ class CepInfo {
     this.bairro,
     this.cidade,
     this.uf,
+    this.ibge,
   });
 
   final String? logradouro;
   final String? bairro;
   final String? cidade;
   final String? uf;
+  final String? ibge;
 }
 
 /// Consulta um CEP no ViaCEP (mesmo serviço usado pelo webapp).
@@ -39,6 +41,7 @@ Future<CepInfo?> buscarCep(String cep) async {
       bairro: map['bairro'] as String?,
       cidade: map['localidade'] as String?,
       uf: map['uf'] as String?,
+      ibge: map['ibge'] as String?,
     );
   } catch (_) {
     return null;

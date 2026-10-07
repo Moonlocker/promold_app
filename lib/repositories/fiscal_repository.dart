@@ -134,6 +134,26 @@ class FiscalRepository {
     return <String, dynamic>{};
   }
 
+  /// Consulta NCM/CFOP na edge function `fiscal-consulta`.
+  Future<List<Map<String, String>>> buscarFiscal(
+    String tipo,
+    String q,
+  ) async {
+    final res = await _client.functions.invoke(
+      'fiscal-consulta',
+      body: {'tipo': tipo, 'q': q},
+    );
+    final data = res.data;
+    final lista = (data is Map ? data['data'] : null) as List?;
+    return (lista ?? const [])
+        .whereType<Map>()
+        .map((e) => {
+              'codigo': '${e['codigo'] ?? ''}',
+              'descricao': '${e['descricao'] ?? ''}',
+            })
+        .toList();
+  }
+
   // ----------------------------------------------------- Configuração fiscal
   Future<Map<String, dynamic>?> getConfig() async {
     final row =

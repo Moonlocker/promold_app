@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/cep.dart';
 import '../../../core/utils/masks.dart';
 import '../../../core/widgets/loading_view.dart';
 import '../../../providers/fiscal_providers.dart';
@@ -116,6 +117,34 @@ class _FiscalConfiguracaoScreenState
 
   double? _num(String key) => double.tryParse(_c[key]!.text.replaceAll(',', '.'));
 
+  Future<void> _buscarCep() async {
+    final info = await buscarCep(_c['cep']!.text);
+    if (info == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CEP não encontrado')),
+        );
+      }
+      return;
+    }
+    setState(() {
+      if ((info.logradouro ?? '').isNotEmpty) {
+        _c['logradouro']!.text = info.logradouro!;
+      }
+      if ((info.bairro ?? '').isNotEmpty) _c['bairro']!.text = info.bairro!;
+      if ((info.cidade ?? '').isNotEmpty) _c['municipio']!.text = info.cidade!;
+      if ((info.uf ?? '').isNotEmpty) _c['uf']!.text = info.uf!;
+      if ((info.ibge ?? '').isNotEmpty) {
+        _c['codigo_municipio']!.text = info.ibge!;
+      }
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Endereço preenchido')),
+      );
+    }
+  }
+
   Future<void> _salvar() async {
     setState(() => _saving = true);
     final payload = <String, dynamic>{
@@ -123,7 +152,7 @@ class _FiscalConfiguracaoScreenState
       'regime_tributario': _regime,
       'optante_simples': _optanteSimples,
       'focus_nfe_token': _nz('focus_nfe_token'),
-      'cnpj': _nz('cnpj'),
+      'cnpj': Masks.onlyDigits(_nz('cnpj')),
       'razao_social': _nz('razao_social'),
       'nome_fantasia': _nz('nome_fantasia'),
       'inscricao_estadual': _nz('inscricao_estadual'),
@@ -135,7 +164,7 @@ class _FiscalConfiguracaoScreenState
       'bairro': _nz('bairro'),
       'municipio': _nz('municipio'),
       'uf': _nz('uf'),
-      'cep': _nz('cep'),
+      'cep': Masks.onlyDigits(_nz('cep')),
       'codigo_municipio': _nz('codigo_municipio'),
       'telefone': _nz('telefone'),
       'email': _nz('email'),
@@ -290,6 +319,7 @@ class _FiscalConfiguracaoScreenState
                       const SizedBox(height: 12),
                       ..._campos.map((key) {
                         final isToken = key == 'focus_nfe_token';
+                        final isCep = key == 'cep';
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: TextField(
@@ -297,11 +327,30 @@ class _FiscalConfiguracaoScreenState
                             obscureText: isToken,
                             maxLines:
                                 key == 'informacoes_adicionais_padrao' ? 2 : 1,
+                            keyboardType: isCep
+                                ? TextInputType.number
+                                : TextInputType.text,
                             decoration: InputDecoration(
-                                labelText: _labels[key] ?? key),
+                              labelText: _labels[key] ?? key,
+                              suffixIcon: isCep
+                                  ? IconButton(
+                                      tooltip: 'Buscar CEP',
+                                      icon: const Icon(Icons.search),
+                                      onPressed: _buscarCep,
+                                    )
+                                  : null,
+                            ),
+                            onSubmitted: isCep ? (_) => _buscarCep() : null,
                             onChanged: (v) {
                               if (key == 'cnpj') {
                                 final m = Masks.maskCNPJ(v);
+                                _c[key]!.value = TextEditingValue(
+                                  text: m,
+                                  selection:
+                                      TextSelection.collapsed(offset: m.length),
+                                );
+                              } else if (isCep) {
+                                final m = Masks.maskCEP(v);
                                 _c[key]!.value = TextEditingValue(
                                   text: m,
                                   selection:

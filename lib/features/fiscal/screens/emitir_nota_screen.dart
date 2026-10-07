@@ -6,6 +6,8 @@ import '../../../core/widgets/loading_view.dart';
 import '../../../providers/cadastros_providers.dart';
 import '../../../providers/fiscal_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../../clientes/widgets/cliente_form_sheet.dart';
+import '../widgets/fiscal_lookup_sheet.dart';
 
 class _ItemForm {
   _ItemForm()
@@ -266,6 +268,13 @@ class _EmitirNotaScreenState extends ConsumerState<EmitirNotaScreen> {
     }
   }
 
+  Future<void> _novoCliente() async {
+    final ok = await showClienteFormSheet(context);
+    if (ok == true) {
+      ref.invalidate(clientesListProvider);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final clientesAsync = ref.watch(clientesListProvider);
@@ -278,19 +287,34 @@ class _EmitirNotaScreenState extends ConsumerState<EmitirNotaScreen> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
-              DropdownButtonFormField<String>(
-                initialValue: _clienteId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Cliente *'),
-                items: clientes
-                    .where((c) => c.ativo)
-                    .map((c) => DropdownMenuItem(
-                          value: c.id,
-                          child: Text(c.nome, overflow: TextOverflow.ellipsis),
-                        ))
-                    .toList(),
-                onChanged:
-                    _saving ? null : (v) => setState(() => _clienteId = v),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _clienteId,
+                      isExpanded: true,
+                      decoration:
+                          const InputDecoration(labelText: 'Cliente *'),
+                      items: clientes
+                          .where((c) => c.ativo)
+                          .map((c) => DropdownMenuItem(
+                                value: c.id,
+                                child: Text(c.nome,
+                                    overflow: TextOverflow.ellipsis),
+                              ))
+                          .toList(),
+                      onChanged: _saving
+                          ? null
+                          : (v) => setState(() => _clienteId = v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Novo cliente',
+                    icon: const Icon(Icons.person_add_alt_1_outlined),
+                    onPressed: _saving ? null : _novoCliente,
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               TextField(
@@ -684,8 +708,23 @@ class _EmitirNotaScreenState extends ConsumerState<EmitirNotaScreen> {
                   child: TextField(
                     controller: item.ncm,
                     enabled: !_saving,
-                    decoration: const InputDecoration(
-                        labelText: 'NCM', isDense: true),
+                    decoration: InputDecoration(
+                      labelText: 'NCM',
+                      isDense: true,
+                      suffixIcon: IconButton(
+                        tooltip: 'Buscar NCM',
+                        icon: const Icon(Icons.search, size: 18),
+                        onPressed: _saving
+                            ? null
+                            : () async {
+                                final codigo = await showFiscalLookupSheet(
+                                    context, tipo: 'ncm');
+                                if (codigo != null && codigo.isNotEmpty) {
+                                  item.ncm.text = codigo;
+                                }
+                              },
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -693,8 +732,23 @@ class _EmitirNotaScreenState extends ConsumerState<EmitirNotaScreen> {
                   child: TextField(
                     controller: item.cfop,
                     enabled: !_saving,
-                    decoration: const InputDecoration(
-                        labelText: 'CFOP', isDense: true),
+                    decoration: InputDecoration(
+                      labelText: 'CFOP',
+                      isDense: true,
+                      suffixIcon: IconButton(
+                        tooltip: 'Buscar CFOP',
+                        icon: const Icon(Icons.search, size: 18),
+                        onPressed: _saving
+                            ? null
+                            : () async {
+                                final codigo = await showFiscalLookupSheet(
+                                    context, tipo: 'cfop');
+                                if (codigo != null && codigo.isNotEmpty) {
+                                  item.cfop.text = codigo;
+                                }
+                              },
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
