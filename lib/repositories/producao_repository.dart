@@ -181,6 +181,28 @@ class ProducaoRepository {
     await _client.from('planejamento_semanal').insert(novo);
   }
 
+  /// Contagem de planejamentos por dia (`data_inicio`) no intervalo.
+  Future<Map<String, int>> contagemPlanejamentoPorDia(
+    String inicio,
+    String fim, {
+    String? tipo,
+  }) async {
+    var query = _client
+        .from('planejamento_semanal')
+        .select('data_inicio')
+        .gte('data_inicio', inicio)
+        .lte('data_inicio', fim);
+    if (tipo != null) query = query.eq('tipo', tipo);
+    final rows = await query;
+    final map = <String, int>{};
+    for (final r in rows) {
+      final dia = r['data_inicio'] as String?;
+      if (dia == null) continue;
+      map[dia] = (map[dia] ?? 0) + 1;
+    }
+    return map;
+  }
+
   /// Move todos os planejamentos de uma obra de um dia para outro.
   ///
   /// Duplicatas (mesma peça já planejada no dia de destino) são removidas da

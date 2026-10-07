@@ -26,6 +26,7 @@ class CapacidadeFabrica {
   const CapacidadeFabrica({
     required this.id,
     this.areaId,
+    this.diaSemana,
     this.capacidadeDiaria = 0,
     this.capacidadeSemanal,
     this.ativa = true,
@@ -33,6 +34,9 @@ class CapacidadeFabrica {
 
   final String id;
   final String? areaId;
+
+  /// Dia da semana (0 = domingo ... 6 = sábado); nulo = todos os dias.
+  final int? diaSemana;
   final double capacidadeDiaria;
   final double? capacidadeSemanal;
   final bool ativa;
@@ -53,8 +57,26 @@ class CapacidadeFabrica {
       CapacidadeFabrica(
         id: m['id'] as String,
         areaId: m['area_produtiva_id'] as String?,
+        diaSemana: (m['dia_semana'] as num?)?.toInt(),
         capacidadeDiaria: _d(m['capacidade_diaria']),
         capacidadeSemanal: _dn(m['capacidade_semanal']),
         ativa: (m['ativa'] as bool?) ?? true,
       );
+}
+
+/// Capacidade x planejado de um dia (gráfico Capacidade vs Planejado).
+class CapacidadeDia {
+  const CapacidadeDia({
+    required this.data,
+    required this.label,
+    required this.capacidade,
+    required this.planejado,
+  });
+
+  final DateTime data;
+  final String label;
+  final double capacidade;
+  final int planejado;
+
+  bool get excedido => capacidade > 0 && planejado > capacidade;
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,7 +17,9 @@ import '../../../providers/auth_providers.dart';
 import '../../../providers/obra_providers.dart';
 import '../../../providers/producao_providers.dart';
 import '../../../providers/supabase_providers.dart';
+import '../../../services/xlsx_service.dart';
 import '../../obras/widgets/obra_peca_edit_sheet.dart';
+import '../widgets/capacidade_chart.dart';
 import '../widgets/obra_progress_table.dart';
 import '../widgets/producao_chart.dart';
 
@@ -84,6 +85,8 @@ class ProducaoScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     _ConcretoAcoCard(data: data),
+                    const SizedBox(height: 16),
+                    const CapacidadeChart(),
                     if (data.porTipo.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       _ResumoPorTipo(porTipo: data.porTipo),
@@ -747,7 +750,7 @@ class _PecasLista extends ConsumerWidget {
                 onPressed:
                     registros.isEmpty ? null : () => _exportar(context),
                 icon: const Icon(Icons.file_download_outlined, size: 18),
-                label: const Text('Exportar CSV'),
+                label: const Text('Exportar XLSX'),
               ),
             ],
           ),
@@ -869,26 +872,40 @@ class _PecasLista extends ConsumerWidget {
 
   Future<void> _exportar(BuildContext context) async {
     if (registros.isEmpty) return;
-    String esc(Object? v) =>
-        '"${(v ?? '').toString().replaceAll('"', '""')}"';
-    final sb = StringBuffer()
-      ..writeln('Identificador;Peca;Obra;Volume (m3);Peso (kg);Aco (kg)');
-    for (final r in registros) {
-      final calc = calcularPeca(r);
-      sb.writeln([
-        esc(r.identificador),
-        esc(r.pecaCatalogo?.nome ?? ''),
-        esc(obrasNome[r.obraId] ?? ''),
-        calc.volume.toStringAsFixed(3).replaceAll('.', ','),
-        calc.peso.toStringAsFixed(0),
-        calc.aco.toStringAsFixed(1).replaceAll('.', ','),
-      ].join(';'));
-    }
-    await Clipboard.setData(ClipboardData(text: sb.toString()));
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('CSV copiado (${registros.length} linha(s))')),
+    try {
+      final ok = await XlsxService.exportar(
+        nomeArquivo: 'producao-${Formatters.hojeBr()}.xlsx',
+        headers: const [
+          'Identificador',
+          'Peça',
+          'Obra',
+          'Volume (m³)',
+          'Peso (kg)',
+          'Aço (kg)',
+        ],
+        rows: registros.map((r) {
+          final calc = calcularPeca(r);
+          return [
+            r.identificador,
+            r.pecaCatalogo?.nome ?? '',
+            obrasNome[r.obraId] ?? '',
+            double.parse(calc.volume.toStringAsFixed(3)),
+            double.parse(calc.peso.toStringAsFixed(0)),
+            double.parse(calc.aco.toStringAsFixed(1)),
+          ];
+        }).toList(),
       );
+      if (context.mounted && ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('${registros.length} linha(s) exportada(s)')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erro ao exportar: $e')));
+      }
     }
   }
 }
